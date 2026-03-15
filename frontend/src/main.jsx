@@ -28,7 +28,7 @@ import AdminDasboard from './pannel/Admin/pages/AdminDashboard.jsx'
 import ManageAppointment from './pannel/Admin/pages/ManageAppointment.jsx'
 import ManageDoctor from './pannel/Admin/pages/ManageDoctor.jsx'
 import ManagePatient from "./pannel/Admin/pages/ManagePatient.jsx";
-import ManagePayment from "./pannel/Admin/pages/ManagePatient.jsx";
+import ManagePayment from "./pannel/Admin/pages/ManagePayment.jsx";
 import ManageSettings from "./pannel/Admin/pages/ManageSettings.jsx";
 import MedicalRecords from './pannel/Admin/pages/MedicalRecords.jsx'
 import ManageAnalytics from './pannel/Admin/pages/ManageAnalytics.jsx'
