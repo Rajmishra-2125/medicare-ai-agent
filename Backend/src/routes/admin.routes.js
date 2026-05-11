@@ -20,6 +20,7 @@ import { isAdmin } from "../middlewares/isAdmin.js";
 
  const router = Router();
 
+ 
  router.route("/dashboard-stats").get(verifyJWT, isAdmin, getDashboardStats);
  router.route("/users").get(verifyJWT, isAdmin, getAllUsers);
  router.route("/doctors").get(verifyJWT, isAdmin, getAllDoctors);
