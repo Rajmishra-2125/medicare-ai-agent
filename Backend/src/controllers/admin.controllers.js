@@ -14,7 +14,6 @@ import {
   generateAppointmentId,
 } from "../utils/idGenerators.js";
 
-
 const getDashboardStats = asyncHandler(async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: "PATIENT" });
@@ -34,7 +33,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5)
       .populate("patientId", "fullname profileImage")
-      .populate("doctorId", "doctor specialization");
+      .populate({
+        path: "doctorId",
+        select: "doctor specialization",
+        options: { includeInactive: true },
+      });
 
     // Analytics Period logic
     const { period = "week" } = req.query;
@@ -158,6 +161,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 const getAllDoctors = asyncHandler(async (req, res) => {
   try {
     const doctors = await Doctor.find()
+      .setOptions({ includeInactive: true })
       .populate("doctorId", "fullname email phone profileImage")
       .sort({ createdAt: -1 });
 
@@ -173,7 +177,11 @@ const getAllAppointments = asyncHandler(async (req, res) => {
   try {
     const appointments = await Appointment.find()
       .populate("patientId", "fullname email phone profileImage")
-      .populate("doctorId", "doctor specialization")
+      .populate({
+        path: "doctorId",
+        select: "doctor specialization",
+        options: { includeInactive: true },
+      })
       .sort({ createdAt: -1 });
 
     return res
@@ -193,7 +201,9 @@ const getAllAppointments = asyncHandler(async (req, res) => {
 const approveDoctorRegistration = asyncHandler(async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const doctor = await Doctor.findById(doctorId);
+    const doctor = await Doctor.findById(doctorId).setOptions({
+      includeInactive: true,
+    });
     if (!doctor) {
       throw new ApiError(404, "Doctor not found");
     }
@@ -206,10 +216,9 @@ const approveDoctorRegistration = asyncHandler(async (req, res) => {
     await doctor.save();
 
     // Populate user details for frontend sync
-    const populatedDoctor = await Doctor.findById(doctorId).populate(
-      "doctorId",
-      "fullname email phone profileImage"
-    );
+    const populatedDoctor = await Doctor.findById(doctorId)
+      .setOptions({ includeInactive: true })
+      .populate("doctorId", "fullname email phone profileImage");
 
     return res
       .status(200)
@@ -231,7 +240,9 @@ const approveDoctorRegistration = asyncHandler(async (req, res) => {
 const rejectDoctorRegistration = asyncHandler(async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const doctor = await Doctor.findById(doctorId);
+    const doctor = await Doctor.findById(doctorId).setOptions({
+      includeInactive: true,
+    });
     if (!doctor) {
       throw new ApiError(404, "Doctor not found");
     }
@@ -245,10 +256,9 @@ const rejectDoctorRegistration = asyncHandler(async (req, res) => {
     await doctor.save();
 
     // Populate user details for frontend sync
-    const populatedDoctor = await Doctor.findById(doctorId).populate(
-      "doctorId",
-      "fullname email phone profileImage"
-    );
+    const populatedDoctor = await Doctor.findById(doctorId)
+      .setOptions({ includeInactive: true })
+      .populate("doctorId", "fullname email phone profileImage");
 
     return res
       .status(200)
@@ -283,10 +293,56 @@ const deletePatient = asyncHandler(async (req, res) => {
   }
 });
 
+const updateUserAccountStatus = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { status, reason } = req.body;
+
+  if (
+    !["ACTIVE", "PENDING_DELETION", "SUSPENDED", "BANNED", "DELETED"].includes(
+      status
+    )
+  ) {
+    throw new ApiError(400, "Invalid account status");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.accountStatus = status;
+
+  if (
+    status === "SUSPENDED" ||
+    status === "BANNED" ||
+    status === "DELETED" ||
+    status === "PENDING_DELETION"
+  ) {
+    user.isActive = false;
+  } else if (status === "ACTIVE") {
+    user.isActive = true;
+  }
+
+  if (reason) {
+    user.deletionReason = reason;
+  }
+
+  await user.save({ validateBeforeSave: false });
+
+  // Get all users to send back if we need, or just the updated user
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, user, `User account status updated to ${status}`)
+    );
+});
+
 const deleteDoctor = asyncHandler(async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const doctor = await Doctor.findById(doctorId);
+    const doctor = await Doctor.findById(doctorId).setOptions({
+      includeInactive: true,
+    });
     if (!doctor) {
       throw new ApiError(404, "Doctor not found");
     }
@@ -312,7 +368,9 @@ const adminCreateSlot = asyncHandler(async (req, res) => {
     );
   }
 
-  const doctor = await Doctor.findById(doctorId);
+  const doctor = await Doctor.findById(doctorId).setOptions({
+    includeInactive: true,
+  });
   if (!doctor) {
     throw new ApiError(404, "Doctor not found");
   }
@@ -327,7 +385,7 @@ const adminCreateSlot = asyncHandler(async (req, res) => {
     doctorId,
     date: utcDate,
     startTime,
-  });
+  }).setOptions({ includeInactive: true });
 
   if (existingSlot) {
     throw new ApiError(400, "Slot already exists for this doctor at this time");
@@ -366,7 +424,9 @@ const adminBookAppointment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Patient not found");
   }
 
-  const doctor = await Doctor.findById(doctorId);
+  const doctor = await Doctor.findById(doctorId).setOptions({
+    includeInactive: true,
+  });
   if (!doctor) {
     throw new ApiError(404, "Doctor not found");
   }
@@ -491,10 +551,16 @@ const adminRescheduleAppointment = asyncHandler(async (req, res) => {
   // Re-fetch populated appointment for frontend sync
   const updatedAppointment = await Appointment.findById(appointmentId)
     .populate("patientId", "fullname email phone profileImage")
-    .populate("doctorId", "doctor specialization");
+    .populate({
+      path: "doctorId",
+      select: "doctor specialization",
+      options: { includeInactive: true },
+    });
 
   // Update Doctor Stats
-  const doctor = await Doctor.findById(appointment.doctorId);
+  const doctor = await Doctor.findById(appointment.doctorId).setOptions({
+    includeInactive: true,
+  });
   if (doctor)
     doctor
       .updateDoctorStats()
@@ -513,7 +579,11 @@ const adminRescheduleAppointment = asyncHandler(async (req, res) => {
 
 const getAllSlots = asyncHandler(async (req, res) => {
   const slots = await Slot.find()
-    .populate("doctorId", "doctor specialization")
+    .populate({
+      path: "doctorId",
+      select: "doctor specialization",
+      options: { includeInactive: true },
+    })
     .sort({ date: 1, startTime: 1 });
 
   return res
@@ -575,7 +645,7 @@ const adminCreateDoctor = asyncHandler(async (req, res) => {
     const doctorProfile = await Doctor.create({
       doctorId: user._id,
       customId,
-      doctor: user.fullname.toLowerCase().replace(/\s+/g, "-"), // Use a slug of fullname since username is missing
+      doctor: user.fullname, // Store explicit literal to permit Agent NLP regex queries
       specialization,
       experience,
       consultationFee,
@@ -608,4 +678,19 @@ const adminCreateDoctor = asyncHandler(async (req, res) => {
   }
 });
 
-export { getDashboardStats, getAllUsers , getAllDoctors, getAllAppointments, approveDoctorRegistration, rejectDoctorRegistration, deletePatient, deleteDoctor, adminCreateSlot, adminBookAppointment, adminRescheduleAppointment, getAllSlots, adminCreateDoctor };
+export {
+  getDashboardStats,
+  getAllUsers,
+  getAllDoctors,
+  getAllAppointments,
+  approveDoctorRegistration,
+  rejectDoctorRegistration,
+  deletePatient,
+  deleteDoctor,
+  adminCreateSlot,
+  adminBookAppointment,
+  adminRescheduleAppointment,
+  getAllSlots,
+  adminCreateDoctor,
+  updateUserAccountStatus,
+};
