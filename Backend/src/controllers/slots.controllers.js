@@ -6,6 +6,7 @@ import { Doctor } from "../models/doctor.models.js";
 import mongoose, { set } from "mongoose";
 // Imports removed
 
+import { generateSlotNumber } from "../utils/idGenerators.js";
 import { generateSlotsForDoctor } from "../services/slotGenerationService.js";
 
 // Generate auto slots for next 7 days
@@ -35,13 +36,32 @@ const generateAutoSlots = asyncHandler(async (req, res) => {
 const createManualSlot = asyncHandler(async (req, res) => {
   const username = req.user?.username;
 
-  const { slotNumber, date, startTime, endTime, slotduration } = req.body;
+  const { date, startTime, endTime, slotduration } = req.body;
+  let slotNumber = req.body.slotNumber;
 
-  if (!slotNumber || !date || !startTime || !endTime || !slotduration) {
-    throw new ApiError(400, "All fields are required.");
+  if (!date || !startTime || !endTime || !slotduration) {
+    throw new ApiError(
+      400,
+      "Date, startTime, endTime, slotduration are required."
+    );
   }
 
-  if (isNaN(new Date(date).getTime())) {
+  let validDate;
+  try {
+    if (typeof date === "string") {
+      const [y, m, d] = date.split("T")[0].split("-");
+      validDate = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d)));
+    } else {
+      const d = new Date(date);
+      validDate = new Date(
+        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+      );
+    }
+  } catch (e) {
+    throw new ApiError(404, "Invalid date format. Enter: YYYY-MM-DD");
+  }
+
+  if (isNaN(validDate.getTime())) {
     throw new ApiError(404, "Invalid date format. Enter: YYYY-MM-DD");
   }
 
@@ -58,10 +78,14 @@ const createManualSlot = asyncHandler(async (req, res) => {
 
   const doctorId = doctor._id; // Corrected: Use Doctor Profile ID directly
 
+  if (!slotNumber) {
+    slotNumber = await generateSlotNumber(doctorId);
+  }
+
   const checkSlot = await Slot.findOne({
     slotNumber: slotNumber,
     doctorId: doctorId,
-    date: new Date(date),
+    date: validDate,
     startTime: startTime,
     status: "AVAILABLE",
   });
@@ -74,7 +98,7 @@ const createManualSlot = asyncHandler(async (req, res) => {
     doctor: username, // Username
     doctorId: doctorId, // Profile ID
     slotNumber: slotNumber,
-    date: date,
+    date: validDate,
     startTime: startTime,
     endTime: endTime,
     slotduration: slotduration,
@@ -94,7 +118,22 @@ const deleteSlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required.");
   }
 
-  if (isNaN(new Date(date).getTime())) {
+  let validDate;
+  try {
+    if (typeof date === "string") {
+      const [y, m, d] = date.split("T")[0].split("-");
+      validDate = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d)));
+    } else {
+      const d = new Date(date);
+      validDate = new Date(
+        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+      );
+    }
+  } catch (e) {
+    throw new ApiError(404, "Invalid date format. Enter: YYYY-MM-DD");
+  }
+
+  if (isNaN(validDate.getTime())) {
     throw new ApiError(404, "Invalid date format. Enter: YYYY-MM-DD");
   }
 
@@ -109,16 +148,14 @@ const deleteSlot = asyncHandler(async (req, res) => {
 
   const doctorId = doctor._id; // Profile ID
 
-  const newDate = new Date(date);
-
   const slot = await Slot.findOneAndDelete({
     slotNumber: slotNumber,
     doctorId: doctorId,
-    date: newDate,
+    date: validDate,
     status: "AVAILABLE",
   });
 
-  console.log("date", newDate);
+  console.log("date", validDate);
 
   console.log("slot", slot);
 
