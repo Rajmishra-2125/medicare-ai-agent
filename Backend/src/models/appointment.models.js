@@ -2,6 +2,12 @@ import mongoose, { Schema } from "mongoose";
 
 const appointmentSchema = new Schema(
   {
+    appointmentId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     patientId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -20,7 +26,7 @@ const appointmentSchema = new Schema(
       required: true,
     },
     slotNumber: {
-      type: Number,
+      type: String,
       required: true,
       index: true,
     },
@@ -76,6 +82,20 @@ const appointmentSchema = new Schema(
       date: Date,
       timeSlots: String,
     },
+    reschedulingHistory: [
+      {
+        fromDate: Date,
+        fromTimeSlots: String,
+        toDate: Date,
+        toTimeSlots: String,
+        rescheduledAt: Date,
+        reason: String,
+        rescheduledBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      },
+    ],
     rescheduleAt: {
       type: Date,
       default: null,
@@ -86,7 +106,7 @@ const appointmentSchema = new Schema(
     },
 
     // Payment Information
-    consulationFee: {
+    consultationFee: {
       type: Number,
       required: [true, "Consultation fee is required"],
     },
@@ -97,7 +117,13 @@ const appointmentSchema = new Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["CREDIT_CARD", "DEBIT_CARD", "UPI", "WALLET", "CASH"],
+      enum: ["CREDIT_CARD", "DEBIT_CARD", "UPI", "WALLET", "CASH", "RAZORPAY"],
+    },
+    razorpayOrderId: {
+      type: String,
+    },
+    razorpayPaymentId: {
+      type: String,
     },
     paidAt: {
       type: Date,
@@ -127,6 +153,10 @@ const appointmentSchema = new Schema(
       type: String,
       maxlength: [1000, "Doctor notes cannot exceed 1000 characters"],
     },
+    isReviewed: {
+      type: Boolean,
+      default: false,
+    },
 
     // Meeting Information(for online appointments)
     meetingLink: {
@@ -154,21 +184,19 @@ const appointmentSchema = new Schema(
 
 // Compound indexes for efficient queries
 appointmentSchema.index({ doctorId: 1, date: 1 });
-appointmentSchema.index({ patientId: 1, date: 1});
+appointmentSchema.index({ patientId: 1, date: 1 });
 appointmentSchema.index({ status: 1, date: 1 });
 appointmentSchema.index({ date: 1, timeSlots: 1 });
-
 
 // Prevent double booking for the same doctor at the same date and time slot
 appointmentSchema.index(
   { doctorId: 1, date: 1, timeSlots: 1 },
-  { 
-    unique: true, 
+  {
+    unique: true,
     partialFilterExpression: {
-      status: { $in: ["CONFIRMED", "PENDING"] },
-    }
+      status: { $in: ["CONFIRMED", "PENDING", "RESCHEDULED"] },
+    },
   }
 );
 
-
-export const Appointment = mongoose.model("Appointment", appointmentSchema)
+export const Appointment = mongoose.model("Appointment", appointmentSchema);
