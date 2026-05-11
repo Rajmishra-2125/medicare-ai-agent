@@ -9,6 +9,12 @@ const doctorSchema = new Schema(
       unique: true,
       index: true,
     },
+    customId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     doctor: {
       type: String,
       unique: true,
@@ -41,7 +47,7 @@ const doctorSchema = new Schema(
     licenseNumber: {
       type: String,
       unique: true,
-      sparse: true,
+      sparse: true, // sparse allow null/unique collision avoidance
       trim: true,
     },
     licenseIssuingAuthority: {
@@ -82,7 +88,7 @@ const doctorSchema = new Schema(
 
     // Availability Information
     availableDays: {
-      type: [String],
+      type: [String], // ["MON", "TUE"]
       enum: [
         "MONDAY",
         "TUESDAY",
@@ -103,26 +109,26 @@ const doctorSchema = new Schema(
       ],
     },
     availableTimeSlots: {
-      type: [String], 
+      type: [String], // ["09:00-10:00", "10:00-11:00"]
       default: ["09:00 AM to 01:00 PM", "02:00 PM to 08:00 PM"],
     },
     workingHours: {
       start: {
-        type: String, 
+        type: String, // "09:00"
         default: "09:00 AM",
       },
       end: {
-        type: String, 
+        type: String, // "17:00"
         default: "08:00 PM",
       },
     },
     breakTime: {
       start: {
-        type: String, 
+        type: String, // "12:00"
         default: "01:00 PM",
       },
       end: {
-        type: String,
+        type: String, // "13:00"
         default: "02:00 PM",
       },
     },
@@ -192,13 +198,12 @@ const doctorSchema = new Schema(
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
-); 
+);
 
 // Indexes
 doctorSchema.index({ specialization: 1, rating: -1 });
 doctorSchema.index({ consultationFee: 1 });
 doctorSchema.index({ isVisible: 1, isAcceptingNewPatients: 1 });
-
 
 // Middleware to exclude invisible doctors from queries by default
 doctorSchema.pre(/^find/, function () {
@@ -209,7 +214,7 @@ doctorSchema.pre(/^find/, function () {
 
 // Virtual for full clinic address
 doctorSchema.virtual("fullClinicAddress").get(function () {
-  if (!this.clinicAddress) return "Address not Provided";
+  if (!this.clinicAddress) return "Address not provided";
 
   const { street, city, state, zipCode, country } = this.clinicAddress;
 
@@ -223,15 +228,24 @@ doctorSchema.virtual("fullClinicAddress").get(function () {
   return addressParts.join(", ");
 });
 
+// Virtual for doctor avatar (retrieved from User model)
+doctorSchema.virtual("doctorAvatar").get(function () {
+  // Check if doctorId is populated and has profileImage
+  if (this.doctorId && this.doctorId.profileImage) {
+    return this.doctorId.profileImage;
+  }
+  return null;
+});
+
 // Instance method to check availability on a specific day
 doctorSchema.methods.isAvailableOnDay = function (dayName) {
   return this.availableDays.includes(dayName.toUpperCase());
-}
+};
 
 // Instance method to get working hours as a formatted string
 doctorSchema.methods.hasTimeSlot = function (timeSlot) {
   return this.availableTimeSlots.includes(timeSlot);
-}
+};
 
 // Instance method to update rating
 doctorSchema.methods.updateRating = async function () {
@@ -248,9 +262,7 @@ doctorSchema.methods.updateRating = async function () {
   }
 
   await this.save();
-}
-
-
+};
 
 // Instance method to update all doctor statistics (Rating + Appointment Counts)
 doctorSchema.methods.updateDoctorStats = async function () {
@@ -265,24 +277,28 @@ doctorSchema.methods.updateDoctorStats = async function () {
       $group: {
         _id: null,
         total: { $sum: 1 },
-        cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
-        completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } }
-      }
-    }
+        cancelled: {
+          $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] },
+        },
+        completed: {
+          $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] },
+        },
+      },
+    },
   ]);
 
   const stats = appointmentStats[0] || { total: 0, cancelled: 0, completed: 0 };
 
   // 2. Calculate Review Stats
   const reviewStats = await Review.aggregate([
-     { $match: { doctorId: doctorId, isApproved: true, isDeleted: false } },
-     {
-       $group: {
-         _id: null,
-         averageRating: { $avg: "$rating" },
-         count: { $sum: 1 }
-       }
-     }
+    { $match: { doctorId: doctorId, isApproved: true, isDeleted: false } },
+    {
+      $group: {
+        _id: null,
+        averageRating: { $avg: "$rating" },
+        count: { $sum: 1 },
+      },
+    },
   ]);
 
   const rStats = reviewStats[0] || { averageRating: 0, count: 0 };
@@ -295,8 +311,6 @@ doctorSchema.methods.updateDoctorStats = async function () {
   this.reviewCount = rStats.count;
 
   await this.save();
-}
-
-
+};
 
 export const Doctor = mongoose.model("Doctor", doctorSchema);
