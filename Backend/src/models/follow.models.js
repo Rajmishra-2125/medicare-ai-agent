@@ -1,4 +1,4 @@
-import mongoose, { Schema} from "mongoose"
+import mongoose, { Schema } from "mongoose";
 
 const followSchema = new Schema(
   {
@@ -28,24 +28,23 @@ const followSchema = new Schema(
   { timestamps: true }
 );
 
-
 // Prevent duplicate follows
 
 followSchema.index(
-    {
-        doctorId: 1,
-        patientId: 1,
-    },
-    {
-        unique: true
-    }
-)
+  {
+    doctorId: 1,
+    patientId: 1,
+  },
+  {
+    unique: true,
+  }
+);
 
 // Only fetch non-deleted follows by default
-followSchema.pre(/^find/, function (next) {
-   if (!this.getOptions().includeDeleted) {
-       this.find({ isDeleted: false });
-   }
+followSchema.pre(/^find/, function () {
+  if (!this.getOptions().includeDeleted) {
+    this.find({ isDeleted: false });
+  }
 });
 
-export const Follow = mongoose.model("Follow", followSchema)
+export const Follow = mongoose.model("Follow", followSchema);
