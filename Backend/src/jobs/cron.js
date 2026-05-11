@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { Doctor } from "../models/doctor.models.js";
-import { generateSlotsForDoctor } from "../services/SlotGenerationService.js";
+import { generateSlotsForDoctor } from "../services/slotGenerationService.js";
 
 // Schedule task to run at 00:00 (Midnight) every day
 const setupCronJobs = () => {
