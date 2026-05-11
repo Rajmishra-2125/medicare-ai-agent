@@ -15,7 +15,6 @@ const migrate = async () => {
     console.log("🔄Starting migration....");
 
     // Update all existing users to have isActive: true and accountStatus: "ACTIVE"
-
     console.log("📝Updating User model...");
 
     const userUpdateResult = await User.updateMany(
