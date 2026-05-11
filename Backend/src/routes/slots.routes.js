@@ -20,4 +20,5 @@ router.route("/create").post(createManualSlot);
 // Delete slot
 router.route("/delete").delete(deleteSlot);
 
+
 export default router;
