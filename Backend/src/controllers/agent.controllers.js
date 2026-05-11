@@ -1,0 +1,492 @@
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { Doctor } from "../models/doctor.models.js";
+import { Slot } from "../models/slots.models.js";
+import { Appointment } from "../models/appointment.models.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import redisClient, { connectRedis } from "../config/redis.js";
+import { geminiService } from "../services/gemini.service.js";
+import { generateAppointmentId } from "../utils/idGenerators.js";
+
+// Ensure Redis is connected
+connectRedis();
+
+// ============================================================================
+// 1. Tool Implementations (The logic the AI can trigger)
+// ============================================================================
+
+const searchDoctors = async ({ specialty, location, name }) => {
+  try {
+    const cacheKey =
+      `search_doctors:${specialty || "any"}_${location || "any"}_${name || "any"}`.toLowerCase();
+
+    if (redisClient.isOpen) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    }
+
+    const query = {};
+    if (specialty) query.specialization = { $regex: specialty, $options: "i" };
+    if (location) query.clinicAddress = { $regex: location, $options: "i" };
+    if (name) {
+      const sanitizedName = name.replace(/^Dr\.?\s*/i, "").trim();
+      query.doctor = { $regex: sanitizedName, $options: "i" };
+    }
+
+    const doctors = await Doctor.find(query)
+      .limit(5)
+      .select("doctor specialization consultationFee rating experience");
+
+    const result =
+      doctors.length === 0
+        ? {
+            success: false,
+            message: "No doctors found matching those criteria.",
+          }
+        : { success: true, doctors };
+
+    if (redisClient.isOpen) {
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(result)); // Cache for 1 hr
+    }
+
+    return result;
+  } catch (error) {
+    return { success: false, message: "Failed to search doctors database." };
+  }
+};
+
+const getAvailableSlots = async ({ doctorName, dateStr }) => {
+  try {
+    if (!doctorName)
+      return { success: false, message: "Doctor name was not provided." };
+
+    // Check Cache First
+    const cacheKey = `slots:${doctorName}_${dateStr || "any"}`.toLowerCase();
+    if (redisClient.isOpen) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    }
+
+    // The DB often stores names without 'Dr.', but the user or LLM adds it in queries
+    const sanitizedName = doctorName.replace(/^Dr\.?\s*/i, "").trim();
+
+    // Fuzzy search doctor by name first
+    const doctor = await Doctor.findOne({
+      doctor: { $regex: sanitizedName, $options: "i" },
+    });
+    if (!doctor)
+      return {
+        success: false,
+        message: `Could not find a doctor named ${doctorName}.`,
+      };
+
+    const query = { doctorId: doctor._id, status: "AVAILABLE" };
+
+    // If date is provided, filter by it strictly using App's UTC architecture
+    if (dateStr && typeof dateStr === "string" && dateStr.includes("-")) {
+      try {
+        const [y, m, d] = dateStr.split("T")[0].split("-");
+        const targetDate = new Date(
+          Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d))
+        );
+
+        // Target exact day boundaries using pure UTC
+        const nextDay = new Date(
+          Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d) + 1)
+        );
+        query.date = { $gte: targetDate, $lt: nextDay };
+      } catch (e) {
+        // Fallback to today UTC if parsing fails
+        const today = new Date();
+        const localUTC = new Date(
+          Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+        );
+        query.date = { $gte: localUTC };
+      }
+    } else {
+      // Don't show slots from passed dates (Zeroed to today UTC)
+      const today = new Date();
+      const localUTC = new Date(
+        Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+      );
+      query.date = { $gte: localUTC };
+    }
+
+    const slots = await Slot.find(query)
+      .sort({ date: 1, startTime: 1 })
+      .limit(10);
+
+    if (slots.length === 0) {
+      return {
+        success: false,
+        message: `No available slots found for Dr. ${doctor.doctor}.`,
+      };
+    }
+
+    const result = {
+      success: true,
+      doctor: doctor.doctor,
+      slots: slots.map((s) => ({
+        date: s.date.toISOString().split("T")[0], // Extract pure YYYY-MM-DD
+        time: `${s.startTime} - ${s.endTime}`,
+        fee: doctor.consultationFee,
+      })),
+    };
+
+    // Cache the successful slots response for 5 minutes
+    if (redisClient.isOpen) {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
+    }
+
+    return result;
+  } catch (error) {
+    return { success: false, message: "Error retrieving slots." };
+  }
+};
+
+const bookAppointment = async (
+  patientId,
+  { doctorName, date, time, reason }
+) => {
+  try {
+    const sanitizedName = doctorName.replace(/^Dr\.?\s*/i, "").trim();
+    const doctor = await Doctor.findOne({
+      doctor: { $regex: sanitizedName, $options: "i" },
+    });
+    if (!doctor)
+      return {
+        success: false,
+        message: `Could not find a doctor named ${doctorName}.`,
+      };
+
+    if (!date || !time) {
+      return {
+        success: false,
+        message:
+          "You must provide both the exact date (YYYY-MM-DD) and the time to book an appointment.",
+      };
+    }
+
+    // Isolate the start time for fuzzy regex matching (e.g. "09:00 AM - 09:30 AM" -> "09:00 AM")
+    const startTimeMatch = time.split("-")[0].trim();
+
+    // Parse target date boundaries using UTC
+    const [y, m, d] = date.split("-");
+    const targetDate = new Date(
+      Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d))
+    );
+    const nextDay = new Date(
+      Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d) + 1)
+    );
+
+    // Verify slot
+    const slot = await Slot.findOne({
+      doctorId: doctor._id,
+      date: { $gte: targetDate, $lt: nextDay },
+      startTime: { $regex: startTimeMatch, $options: "i" },
+    });
+
+    if (!slot) {
+      return {
+        success: false,
+        message: `The system could not find a slot on ${date} at ${time}. Are you sure it was offered in get_available_slots?`,
+      };
+    }
+    if (slot.status !== "AVAILABLE") {
+      return {
+        success: false,
+        message:
+          "This slot is no longer available. It may have been booked just now.",
+      };
+    }
+
+    // Generate proper Appointment ID
+    const appointmentId = await generateAppointmentId();
+
+    // Create appointment
+    const newApt = await Appointment.create({
+      appointmentId,
+      patientId,
+      doctorId: doctor._id,
+      slotId: slot._id,
+      slotNumber: slot.slotNumber,
+      date: slot.date,
+      timeSlots: `${slot.startTime}-${slot.endTime}`,
+      reason: reason || "General Consultation via AI Assistant",
+      status: "PENDING",
+      consultationFee: doctor.consultationFee,
+    });
+
+    // Mark slot as booked
+    slot.status = "BOOKED";
+    await slot.save();
+
+    // Invalidate Cache
+    if (redisClient.isOpen) {
+      const cacheKeyWithDate = `slots:${doctorName}_${date}`.toLowerCase();
+      const cacheKeyWithoutDate = `slots:${doctorName}_any`.toLowerCase();
+      await redisClient.del(cacheKeyWithDate);
+      await redisClient.del(cacheKeyWithoutDate);
+    }
+
+    return {
+      success: true,
+      message: `Appointment successfully booked with Dr. ${doctor.doctor} on ${slot.date.toLocaleDateString()} at ${slot.startTime}. Appointment Number: ${newApt.appointmentId} (Slot: ${slot.slotNumber})`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.message || "Failed to book appointment due to a system error.",
+    };
+  }
+};
+
+// ============================================================================
+// 2. Gemini Tool Declarations
+// ============================================================================
+
+const systemTools = [
+  {
+    functionDeclarations: [
+      {
+        name: "search_doctors",
+        description:
+          "Search for doctors in the hospital based on medical specialty, location, or name.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            specialty: {
+              type: SchemaType.STRING,
+              description:
+                "Medical specialty, e.g., 'Cardiologist', 'Dermatologist'",
+            },
+            location: {
+              type: SchemaType.STRING,
+              description: "City or specific location",
+            },
+            name: {
+              type: SchemaType.STRING,
+              description:
+                "Name of the doctor, e.g., 'Raj Mishra', 'Dr. Smith'",
+            },
+          },
+        },
+      },
+      {
+        name: "get_available_slots",
+        description:
+          "Get available appointment timings for a specific doctor. Ensure doctorName matches exact full name returned from search_doctors.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            doctorName: {
+              type: SchemaType.STRING,
+              description: "The name of the doctor",
+            },
+            dateStr: {
+              type: SchemaType.STRING,
+              description: "Optional ISO date string YYYY-MM-DD",
+            },
+          },
+          required: ["doctorName"],
+        },
+      },
+      {
+        name: "book_appointment",
+        description:
+          "Physically lock and book the appointment slot in the database for the user.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            doctorName: { type: SchemaType.STRING },
+            date: {
+              type: SchemaType.STRING,
+              description:
+                "The exact calendar date of the requested slot returned by get_available_slots (YYYY-MM-DD)",
+            },
+            time: {
+              type: SchemaType.STRING,
+              description:
+                "The exact time of the slot returned by get_available_slots (e.g. 09:00 AM - 09:30 AM)",
+            },
+            reason: {
+              type: SchemaType.STRING,
+              description:
+                "Patient's description of their symptoms or reason for visit",
+            },
+          },
+          required: ["doctorName", "date", "time", "reason"],
+        },
+      },
+    ],
+  },
+];
+
+// ============================================================================
+// 3. Main Chat Interface Controller
+// ============================================================================
+
+export const handleAgentChat = asyncHandler(async (req, res) => {
+  const { message, chatHistory = [] } = req.body;
+  const patientId = req.user._id;
+
+  if (geminiService.keys.length === 0) {
+    throw new ApiError(
+      500,
+      "GEMINI_API_KEYS are missing from the environment variables."
+    );
+  }
+
+  const currentDate = new Date();
+  const readableDate = currentDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const isoDate = currentDate.toISOString().split("T")[0];
+
+  // Filter and sanitize chat history for Gemini strict requirements:
+  let sanitizedHistory = [...chatHistory];
+
+  // Remove the current message from history if it was just pushed to Redux
+  if (
+    sanitizedHistory.length > 0 &&
+    sanitizedHistory[sanitizedHistory.length - 1].text === message
+  ) {
+    sanitizedHistory.pop();
+  }
+
+  // Remove any leading model messages (like the greeting)
+  while (
+    sanitizedHistory.length > 0 &&
+    sanitizedHistory[0].role === "assistant"
+  ) {
+    sanitizedHistory.shift();
+  }
+
+  // Convert the frontend agnostic format {role: 'user/assistant', text: '...'} to Gemini format
+  const formattedHistory = sanitizedHistory.map((msg) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.text }],
+  }));
+
+  try {
+    const aiMessageText = await geminiService.executeWithRotation(
+      async (genAI) => {
+        // Define the base model prompt configuring its persona
+        const model = genAI.getGenerativeModel({
+          model: "gemini-3.1-flash-lite-preview",
+          systemInstruction: `You are MediBot, an AI appointment assistant for our hospital portal.
+CRITICAL CONTEXT: Today is ${readableDate} (YYYY-MM-DD: ${isoDate}). When a user requests slots for 'today', 'tomorrow', or any relative day, you MUST mathematically calculate the correct YYYY-MM-DD date using this real-time calendar and explicitly pass it as the "dateStr" parameter to get_available_slots!
+
+PERSONA: Compassionate, concise, and professional. Never mention internal tool names or IDs to patients.
+
+STRICT RULES FOR TOOL USE:
+1. search_doctors → Pass only the bare name (no "Dr." prefix) e.g. "Raj Mishra" not "Dr.Raj".
+2. get_available_slots → Use the EXACT full doctor name returned from search_doctors result (e.g., "Dr. Raj Mishra").
+3. book_appointment → ALWAYS confirm the exact date and time with the patient before booking. Pass the exact "date" and "time" strings returned from get_available_slots into this tool!
+4. location → NEVER ask the user for a location or city. We operate a single-location hospital. Ignore location parameters.
+
+CONVERSATION FLOW:
+- If user mentions a doctor name → call search_doctors first.
+- If user asks for timings/slots → call get_available_slots.
+- Before booking → summarize slot details and ask "Shall I confirm this appointment?".
+- After booking → share the reference ID and wish them well.
+
+FALLBACKS:
+- If no doctor found → DO NOT ask the user about spelling or uppercase/lowercase. The database is already case-insensitive. Simply state the doctor is not on staff and offer to show alternative doctors matching their specialty!
+- If no slots found → apologize and suggest trying a different date.
+- Never make up doctor names, slots, or fees.`,
+          tools: systemTools,
+        });
+
+        // Start chat session with history
+        const chat = model.startChat({
+          history: formattedHistory,
+        });
+
+        // Send the primary message
+        let result = await chat.sendMessage(message);
+
+        // Check if the LLM desires to trigger a tool (potentially multiple times)
+        let MAX_RETRIES = 5;
+        let attempts = 0;
+        let finalMessageText = "";
+
+        while (attempts < MAX_RETRIES) {
+          const functionCalls =
+            result.response.functionCalls &&
+            typeof result.response.functionCalls === "function"
+              ? result.response.functionCalls()
+              : result.response.functionCalls; // Fallback in case of SDK version differences
+
+          if (functionCalls && functionCalls.length > 0) {
+            // Collect responses for ALL simultaneously triggered tools
+            const functionResponses = await Promise.all(
+              functionCalls.map(async (call) => {
+                let functionData = null;
+
+                if (call.name === "search_doctors") {
+                  functionData = await searchDoctors(call.args);
+                } else if (call.name === "get_available_slots") {
+                  functionData = await getAvailableSlots(call.args);
+                } else if (call.name === "book_appointment") {
+                  functionData = await bookAppointment(patientId, call.args);
+                }
+
+                return {
+                  functionResponse: {
+                    name: call.name,
+                    response: functionData || {
+                      error: "Unknown internal resolution failure.",
+                    },
+                  },
+                };
+              })
+            );
+
+            // Return ALL intercepted tool responses back to the LLM immediately
+            result = await chat.sendMessage(functionResponses);
+            attempts++;
+          } else {
+            // No more tool calls, we can safely extract text!
+            finalMessageText = result.response.text();
+            break;
+          }
+        }
+
+        return finalMessageText;
+      }
+    );
+
+    // Clean response to prevent Circular JSON payload serialization errors
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            message:
+              aiMessageText ||
+              "I'm having a hard time understanding that context.",
+          },
+          "Agent replied correctly."
+        )
+      );
+  } catch (error) {
+    console.error("LLM Engine Fault:", error.message);
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          message:
+            "We are facing high traffic. Please try again after some time! 🙏",
+        },
+        "Agent replied gracefully to error."
+      )
+    );
+  }
+});
