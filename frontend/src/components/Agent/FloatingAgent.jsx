@@ -1,0 +1,139 @@
+import React, { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { MessageSquare, X, Send, Bot, User, Loader2 } from "lucide-react";
+import { toggleAgentChat, sendChatMessage, addUserMessage } from "../../features/agent/agentSlice";
+import ReactMarkdown from "react-markdown";
+
+const FloatingAgent = () => {
+  const dispatch = useDispatch();
+  const { chatHistory, isLoading, isOpen } = useSelector((state) => state.agent);
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [chatHistory, isOpen]);
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    // Immediately push user message to UI
+    dispatch(addUserMessage(input));
+    // Trigger async LLM tool engine lookup
+    dispatch(sendChatMessage(input));
+    setInput("");
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => dispatch(toggleAgentChat())}
+        className="fixed bottom-6 right-6 p-4 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 hover:shadow-2xl hover:-translate-y-1 transition-all z-50 group flex items-center justify-center animate-bounce duration-1000"
+      >
+        <Bot className="w-6 h-6 group-hover:scale-110 transition-transform" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 w-95 h-150 max-h-[85vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-gray-100 dark:border-slate-800 animate-in slide-in-from-bottom-5">
+      {/* Header */}
+      <div className="bg-linear-to-r from-indigo-600 to-blue-600 p-4 flex justify-between items-center text-white shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+            <Bot className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm tracking-wide">MediBot Assistant</h3>
+            <p className="text-xs text-indigo-100 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> Online
+            </p>
+          </div>
+        </div>
+        <button 
+          onClick={() => dispatch(toggleAgentChat())}
+          className="p-2 hover:bg-white/20 rounded-full transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Messages Window */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 dark:bg-slate-900/50">
+        {chatHistory.map((msg, index) => (
+          <div 
+            key={index} 
+            className={`flex items-end gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+          >
+            {/* Avatar */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'}`}>
+              {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+            </div>
+            
+            {/* Message Bubble */}
+            <div 
+              className={`max-w-[75%] px-4 py-3 text-sm rounded-2xl ${
+                msg.role === 'user' 
+                  ? 'bg-blue-600 text-white rounded-br-sm' 
+                  : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 border border-gray-100 dark:border-slate-700 rounded-bl-sm shadow-sm'
+              }`}
+            >
+              <div className="prose prose-sm dark:prose-invert prose-p:leading-relaxed max-w-none">
+                <ReactMarkdown>
+                  {msg.text}
+                </ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex items-end gap-2">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm border border-gray-100 dark:border-slate-700">
+              <div className="flex gap-1 items-center h-5">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shrink-0">
+        <form onSubmit={handleSend} className="relative flex items-center">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+            placeholder="E.g. Book an eye doctor for tomorrow..."
+            className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl pl-4 pr-12 py-3.5 text-sm outline-none ring-0 placeholder:text-gray-400 dark:text-white"
+          />
+          <button 
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </form>
+        <p className="text-[10px] text-center text-gray-400 mt-2">MediBot may make mistakes. Always verify appointments.</p>
+      </div>
+    </div>
+  );
+};
+
+export default FloatingAgent;
