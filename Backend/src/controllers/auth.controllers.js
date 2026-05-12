@@ -17,13 +17,6 @@ import { OTP } from "../models/otp.models.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Cookie options — secure only in production (localhost HTTP doesn't support secure cookies)
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-};
-
 // Generate Access and Refresh Token
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -221,10 +214,16 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
+
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(
       new ApiResponse(
         200,
@@ -257,9 +256,15 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    if (incomingRefreshToken !== user?.refreshToken) {
+    if (incomingRefreshToken == user?.refreshToken) {
       throw new ApiError(401, "Refresh token is expired or used");
     }
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    };
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
       user._id
@@ -269,8 +274,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken, cookieOptions)
-      .cookie("refreshToken", refreshToken, cookieOptions)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
       .json(
         new ApiResponse(
           200,
@@ -292,22 +297,18 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
   }
 
   try {
-    const userInfoResponse = await fetch(
-      "https://www.googleapis.com/oauth2/v3/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${googleToken}`,
-        },
-      }
-    );
+    // Verify the JWT ID token returned by the GoogleLogin component
+    const ticket = await client.verifyIdToken({
+      idToken: googleToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-    if (!userInfoResponse.ok) {
-      throw new Error("Failed to verify token with Google");
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error("Invalid Google token payload");
     }
 
-    const payload = await userInfoResponse.json();
     const { email, name, picture, sub: googleId } = payload;
-
     const normalizedEmail = email.toLowerCase().trim();
 
     let user = await User.findOne({ email: normalizedEmail }).select(
@@ -336,10 +337,16 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
       "-password -refreshToken"
     );
 
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    };
+
     return res
       .status(200)
-      .cookie("accessToken", accessToken, cookieOptions)
-      .cookie("refreshToken", refreshToken, cookieOptions)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
       .json(
         new ApiResponse(
           200,
@@ -361,10 +368,16 @@ const logoutUser = asyncHandler(async (req, res) => {
     },
   });
 
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
+
   return res
     .status(200)
-    .clearCookie("accessToken", cookieOptions)
-    .clearCookie("refreshToken", cookieOptions)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, "User loggedOut successfully"));
 });
 
@@ -456,10 +469,16 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  };
+
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(
       new ApiResponse(
         200,
