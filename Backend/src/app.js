@@ -23,7 +23,7 @@ app.use(
 app.use(
   helmet({
     contentSecurityPolicy: false, // Disabling CSP for API server to prevent Chrome DevTools errors
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" },
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Update to cross-origin to allow requests from the frontend domain
   })
 );
