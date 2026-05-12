@@ -34,8 +34,8 @@ router.route("/google").post(googleAuthLogin);
 // Verify OTP
 router.route("/verify-otp").post(upload.none(), verifyEmailOTP);
 
-// Refresh access token — accepts both GET and POST (some clients call it as POST)
-router.route("/refresh-token").get(refreshAccessToken).post(refreshAccessToken);
+// Refresh access token
+router.route("/refresh-token").get(refreshAccessToken);
 
 // <=> Secured routes <=>
 
