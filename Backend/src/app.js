@@ -12,8 +12,6 @@ app.use(
   cors({
     origin: [
       process.env.FRONTEND_URL,
-      "http://localhost:5173",
-      "http://localhost:5174",
     ],
     credentials: true,
   })
@@ -22,9 +20,13 @@ app.use(
 // Security & Logger
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Disabling CSP for API server to prevent Chrome DevTools errors
-    crossOriginOpenerPolicy: { policy: "unsafe-none" },
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // Update to cross-origin to allow requests from the frontend domain
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+
+    crossOriginOpenerPolicy: {
+      policy: "same-origin-allow-popups",
+    },
   })
 );
 
