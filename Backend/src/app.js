@@ -8,11 +8,21 @@ import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
 
 // CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL,
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked: ${origin} is not allowed`));
+    },
     credentials: true,
   })
 );
@@ -23,6 +33,7 @@ app.use(
     crossOriginResourcePolicy: {
       policy: "cross-origin",
     },
+
     crossOriginOpenerPolicy: {
       policy: "unsafe-none",
     },
