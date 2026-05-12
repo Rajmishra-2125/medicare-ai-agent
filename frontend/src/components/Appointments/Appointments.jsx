@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import Skeleton from "../common/Skeleton";
 import {
   Calendar,
   Clock,
@@ -24,31 +27,34 @@ import {
   Download,
   Printer,
   Share2,
+  Star,
 } from "lucide-react";
+import MyAppointments from "../../panels/Patient/pages/MyAppointments.jsx";
+import appointmentService from "../../services/appointmentService";
+import doctorService from "../../services/doctorService";
 
 function Appointments() {
   const location = useLocation();
   const selectedDoctor = location.state?.doctor;
+  const { user } = useSelector((state) => state.auth);
 
-  const [activeTab, setActiveTab] = useState("book"); // book, myAppointments, aiAssistant
-  const [showAIChat, setShowAIChat] = useState(false);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const [activeTab, setActiveTab] = useState("book"); // book, myAppointments
 
   // Booking Form State
   const [formData, setFormData] = useState({
     patientName: "",
     email: "",
     phone: "",
-    age: "",
-    gender: "",
-    address: "",
-    selectedDoctor: selectedDoctor?.name || "",
+    selectedDoctor: selectedDoctor?.id || "",
     specialty: selectedDoctor?.specialty || "",
     appointmentDate: "",
     appointmentTime: "",
-    appointmentType: "in-person", // in-person or video
+    appointmentType: "in-person",
     reason: "",
-    symptoms: "",
-    insurance: "",
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -57,93 +63,164 @@ function Appointments() {
   const [bookedAppointmentDetails, setBookedAppointmentDetails] =
     useState(null);
 
-  // AI Chat State
-  const [messages, setMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-
   // My Appointments State
-  const [myAppointments, setMyAppointments] = useState([
+  const [myAppointments, setMyAppointments] = useState([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+
+  // All Doctors State for dropdown
+  const [allDoctors, setAllDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+  // Available slots for selected doctor + date
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [selectedSlotDetails, setSelectedSlotDetails] = useState(null);
+
+  // Fetch all doctors on mount
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setLoadingDoctors(true);
+        const data = await doctorService.getAllDoctors();
+
+        // Map the data to match expected structure
+        const mappedDoctors = data.map((doc) => ({
+          id: doc._id,
+          name: doc.doctorDetails?.fullname || doc.doctor || "Doctor",
+          specialty: doc.specialization || "General",
+          // `Doctor.doctor` is the username used by backend booking endpoints.
+          username: doc.doctor,
+          doctorId: doc.doctorId,
+        }));
+
+        // Sort the data alphabetically
+        const sortedDoctors = mappedDoctors.sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        setAllDoctors(sortedDoctors || []);
+      } catch (error) {
+        console.error("Error fetching doctors:", error);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+    fetchDoctors();
+  }, []);
+
+  // Fetch available slots whenever doctor/date changes
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!formData.selectedDoctor || !formData.appointmentDate) return;
+
+      const doctor = allDoctors.find((d) => d.id === formData.selectedDoctor);
+      const doctorUsername = doctor?.username;
+      if (!doctorUsername) return;
+
+      setLoadingSlots(true);
+      setAvailableSlots([]);
+      setSelectedSlotDetails(null);
+      setFormData((prev) => ({ ...prev, appointmentTime: "" }));
+
+      try {
+        const res = await appointmentService.checkAvailableSlots(
+          doctorUsername,
+          formData.appointmentDate,
+        );
+
+        const slots = Array.isArray(res?.data) ? res.data : res || [];
+        setAvailableSlots(Array.isArray(slots) ? slots : []);
+      } catch (error) {
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to fetch available slots",
+        );
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    fetchSlots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.selectedDoctor, formData.appointmentDate, allDoctors]);
+
+  // Fetch appointments on mount and when tab changes to myAppointments
+  useEffect(() => {
+    fetchAppointments();
+  }, [activeTab]);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoadingAppointments(true);
+      const data = await appointmentService.getMyAppointments();
+      const appointmentsList = data.data || data || []; // Handle potential nesting
+      setMyAppointments(
+        Array.isArray(appointmentsList) ? appointmentsList : [],
+      );
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  // Handle route based tab selection
+  useEffect(() => {
+    if (location.pathname === "/my-appointments") {
+      setActiveTab("myAppointments");
+    }
+  }, [location.pathname]);
+
+  // Doctors list for dropdown - will be fetched from backend
+  const [doctors, setDoctors] = useState([
     {
-      id: "APT001",
-      doctorName: "Dr. Sarah Smith",
+      name: "Dr. Sarah Smith",
       specialty: "Cardiology",
-      date: "2026-02-10",
-      time: "10:00 AM",
-      type: "Video Consultation",
-      status: "Upcoming",
-      location: "Video Call",
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
+      username: "sarahsmith",
     },
     {
-      id: "APT002",
-      doctorName: "Dr. Michael Johnson",
+      name: "Dr. Michael Johnson",
       specialty: "Neurology",
-      date: "2026-01-28",
-      time: "2:30 PM",
-      type: "In-Person",
-      status: "Completed",
-      location: "Central Hospital",
-      image:
-        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400",
+      username: "michaeljohnson",
+    },
+    { name: "Dr. Emily Lee", specialty: "Dermatology", username: "emilylee" },
+    {
+      name: "Dr. James Wilson",
+      specialty: "Orthopedics",
+      username: "jameswilson",
+    },
+    {
+      name: "Dr. Olivia Martinez",
+      specialty: "Pediatrics",
+      username: "oliviamartinez",
+    },
+    {
+      name: "Dr. David Chen",
+      specialty: "Ophthalmology",
+      username: "davidchen",
     },
   ]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Fetch doctors on mount
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Initialize AI Chat
-  useEffect(() => {
-    if (activeTab === "aiAssistant" && messages.length === 0) {
-      setMessages([
-        {
-          role: "assistant",
-          content: `Hello! I'm your AI appointment booking assistant. I can help you:
-
-• Book appointments with our doctors
-• Check available time slots
-• Answer questions about our specialists
-• Reschedule existing appointments
-
-How can I assist you today?`,
-        },
-      ]);
-    }
-  }, [activeTab]);
-
-  // Available time slots
-  const timeSlots = [
-    "09:00 AM",
-    "09:30 AM",
-    "10:00 AM",
-    "10:30 AM",
-    "11:00 AM",
-    "11:30 AM",
-    "12:00 PM",
-    "02:00 PM",
-    "02:30 PM",
-    "03:00 PM",
-    "03:30 PM",
-    "04:00 PM",
-    "04:30 PM",
-    "05:00 PM",
-  ];
-
-  // Doctors list for dropdown
-  const doctors = [
-    { name: "Dr. Sarah Smith", specialty: "Cardiology" },
-    { name: "Dr. Michael Johnson", specialty: "Neurology" },
-    { name: "Dr. Emily Lee", specialty: "Dermatology" },
-    { name: "Dr. James Wilson", specialty: "Orthopedics" },
-    { name: "Dr. Olivia Martinez", specialty: "Pediatrics" },
-    { name: "Dr. David Chen", specialty: "Ophthalmology" },
-  ];
+    const fetchDoctors = async () => {
+      try {
+        const data = await doctorService.getAllDoctors();
+        if (data && data.length > 0) {
+          const formattedDoctors = data.map((doc) => ({
+            name: doc.fullName,
+            specialty: doc.specialty,
+            username: doc.username,
+          }));
+          setDoctors(formattedDoctors);
+        }
+      } catch (error) {
+        console.error("Failed to fetch doctors:", error);
+        // Keep the default doctors if fetch fails
+      }
+    };
+    fetchDoctors();
+  }, []);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -163,13 +240,32 @@ How can I assist you today?`,
 
   // Handle doctor selection
   const handleDoctorChange = (e) => {
-    const doctorName = e.target.value;
-    const doctor = doctors.find((d) => d.name === doctorName);
+    const doctorId = e.target.value;
+    const doctor = allDoctors.find((d) => d.id === doctorId);
     setFormData((prev) => ({
       ...prev,
-      selectedDoctor: doctorName,
+      selectedDoctor: doctorId,
       specialty: doctor?.specialty || "",
     }));
+  };
+
+  const handleSlotChange = (e) => {
+    const slotNumber = e.target.value;
+    const slot = availableSlots.find((s) => s.slotNumber === slotNumber);
+
+    setFormData((prev) => ({
+      ...prev,
+      appointmentTime: slotNumber,
+    }));
+
+    setSelectedSlotDetails(slot || null);
+
+    if (formErrors.appointmentTime) {
+      setFormErrors((prev) => ({
+        ...prev,
+        appointmentTime: "",
+      }));
+    }
   };
 
   // Validate form
@@ -181,8 +277,6 @@ How can I assist you today?`,
     else if (!/\S+@\S+\.\S+/.test(formData.email))
       errors.email = "Email is invalid";
     if (!formData.phone.trim()) errors.phone = "Phone is required";
-    if (!formData.age) errors.age = "Age is required";
-    if (!formData.gender) errors.gender = "Gender is required";
     if (!formData.selectedDoctor)
       errors.selectedDoctor = "Please select a doctor";
     if (!formData.appointmentDate) errors.appointmentDate = "Date is required";
@@ -203,33 +297,52 @@ How can I assist you today?`,
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const appointmentId =
-        "APT" + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-      const newAppointment = {
-        id: appointmentId,
-        doctorName: formData.selectedDoctor,
-        specialty: formData.specialty,
+    try {
+      // Get the doctor's details from the selected doctor ID
+      const doctor = allDoctors.find((d) => d.id === formData.selectedDoctor);
+
+      if (!doctor || !doctor.username) {
+        throw new Error("Doctor not found");
+      }
+
+      // Book appointment via API
+      const appointmentData = {
+        slotNumber: formData.appointmentTime,
+        // Pass YYYY-MM-DD directly; backend normalizes to UTC midnight.
         date: formData.appointmentDate,
-        time: formData.appointmentTime,
+        username: doctor.username,
+        reason: formData.reason,
+      };
+
+      const response =
+        await appointmentService.bookAppointment(appointmentData);
+      const bookedAppointment = response?.data || response;
+
+      setBookedAppointmentDetails({
+        id: bookedAppointment?.appointmentId || bookedAppointment?._id,
+        doctorName: doctor.name, // Use doctor name instead of ID
+        specialty: doctor.specialty,
+        date: formData.appointmentDate,
+        time: selectedSlotDetails
+          ? `${selectedSlotDetails.startTime} - ${selectedSlotDetails.endTime}`
+          : bookedAppointment?.timeSlots || formData.appointmentTime,
         type:
           formData.appointmentType === "video"
             ? "Video Consultation"
             : "In-Person",
-        status: "Upcoming",
-        location:
-          formData.appointmentType === "video" ? "Video Call" : "Hospital",
-        patientName: formData.patientName,
-        image:
-          "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
-      };
+        status: bookedAppointment?.status || "CONFIRMED",
+      });
 
-      setBookedAppointmentDetails(newAppointment);
-      setMyAppointments((prev) => [newAppointment, ...prev]);
       setBookingSuccess(true);
+    } catch (error) {
+      console.error("Booking error:", error);
+      alert(
+        error.response?.data?.message ||
+          "Failed to book appointment. Please try again.",
+      );
+    } finally {
       setIsSubmitting(false);
-    }, 2000);
+    }
   };
 
   // Reset form
@@ -238,137 +351,18 @@ How can I assist you today?`,
       patientName: "",
       email: "",
       phone: "",
-      age: "",
-      gender: "",
-      address: "",
       selectedDoctor: "",
       specialty: "",
       appointmentDate: "",
       appointmentTime: "",
       appointmentType: "in-person",
       reason: "",
-      symptoms: "",
-      insurance: "",
     });
     setBookingSuccess(false);
     setBookedAppointmentDetails(null);
+    setAvailableSlots([]);
+    setSelectedSlotDetails(null);
     setFormErrors({});
-  };
-
-  // AI Chat functionality
-  const callClaudeAPI = async (conversationHistory) => {
-    const systemPrompt = `You are a helpful medical appointment booking assistant for MediCare. You can:
-1. Help book appointments with doctors
-2. Provide information about available specialists
-3. Suggest appropriate doctors based on symptoms
-4. Answer questions about appointment procedures
-
-Our available doctors:
-- Dr. Sarah Smith (Cardiology)
-- Dr. Michael Johnson (Neurology)
-- Dr. Emily Lee (Dermatology)
-- Dr. James Wilson (Orthopedics)
-- Dr. Olivia Martinez (Pediatrics)
-- Dr. David Chen (Ophthalmology)
-
-Available time slots: 9:00 AM - 5:00 PM, Monday to Friday
-
-When you have gathered: patient name, preferred doctor, date, and time, respond with a JSON object:
-{
-  "booking_confirmed": true,
-  "patient_name": "John Doe",
-  "doctor": "Dr. Sarah Smith",
-  "specialty": "Cardiology",
-  "date": "2026-02-10",
-  "time": "10:00 AM",
-  "confirmation_message": "Your appointment is confirmed!"
-}
-
-Otherwise, continue the conversation naturally to gather information.`;
-
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: conversationHistory,
-        }),
-      });
-
-      const data = await response.json();
-      return data.content[0].text;
-    } catch (error) {
-      console.error("AI Error:", error);
-      return "I apologize, but I'm having trouble connecting right now. Please try again or use the booking form.";
-    }
-  };
-
-  const handleChatSend = async () => {
-    if (!chatInput.trim()) return;
-
-    const userMessage = { role: "user", content: chatInput };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    setChatInput("");
-    setIsChatLoading(true);
-
-    const conversationHistory = updatedMessages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
-
-    const assistantResponse = await callClaudeAPI(conversationHistory);
-
-    // Check for booking confirmation
-    try {
-      const jsonMatch = assistantResponse.match(
-        /\{[\s\S]*"booking_confirmed"[\s\S]*\}/,
-      );
-      if (jsonMatch) {
-        const bookingData = JSON.parse(jsonMatch[0]);
-        if (bookingData.booking_confirmed) {
-          const appointmentId =
-            "APT" + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-          const newAppointment = {
-            id: appointmentId,
-            doctorName: bookingData.doctor,
-            specialty: bookingData.specialty,
-            date: bookingData.date,
-            time: bookingData.time,
-            type: "In-Person",
-            status: "Upcoming",
-            location: "Hospital",
-            patientName: bookingData.patient_name,
-            image:
-              "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
-          };
-          setMyAppointments((prev) => [newAppointment, ...prev]);
-        }
-      }
-    } catch (e) {
-      // Not a booking confirmation
-    }
-
-    setMessages([
-      ...updatedMessages,
-      {
-        role: "assistant",
-        content: assistantResponse,
-      },
-    ]);
-    setIsChatLoading(false);
-  };
-
-  const handleChatKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleChatSend();
-    }
   };
 
   // Get minimum date (today)
@@ -380,12 +374,6 @@ Otherwise, continue the conversation naturally to gather information.`;
       <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white py-16 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 mb-4">
-            <Link
-              to="/doctors"
-              className="hover:bg-white/20 p-2 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
             <div>
               <h1 className="text-4xl md:text-5xl font-bold">
                 Book Appointment
@@ -413,33 +401,6 @@ Otherwise, continue the conversation naturally to gather information.`;
               >
                 <Calendar className="w-5 h-5" />
                 Book Appointment
-              </button>
-              <button
-                onClick={() => setActiveTab("myAppointments")}
-                className={`flex items-center gap-2 px-6 py-4 border-b-2 font-semibold transition-colors ${
-                  activeTab === "myAppointments"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-                }`}
-              >
-                <Activity className="w-5 h-5" />
-                My Appointments
-                {myAppointments.length > 0 && (
-                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                    {myAppointments.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab("aiAssistant")}
-                className={`flex items-center gap-2 px-6 py-4 border-b-2 font-semibold transition-colors ${
-                  activeTab === "aiAssistant"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-                }`}
-              >
-                <Bot className="w-5 h-5" />
-                AI Assistant
               </button>
             </nav>
           </div>
@@ -593,23 +554,6 @@ Otherwise, continue the conversation naturally to gather information.`;
                           </div>
                         </div>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Address
-                        </label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                          <textarea
-                            name="address"
-                            value={formData.address}
-                            onChange={handleInputChange}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
-                            placeholder="123 Main St, City, State"
-                            rows="2"
-                          />
-                        </div>
-                      </div>
                     </div>
 
                     {/* Appointment Details */}
@@ -633,11 +577,15 @@ Otherwise, continue the conversation naturally to gather information.`;
                             }`}
                           >
                             <option value="">Choose a doctor</option>
-                            {doctors.map((doctor, idx) => (
-                              <option key={idx} value={doctor.name}>
-                                {doctor.name} - {doctor.specialty}
-                              </option>
-                            ))}
+                            {loadingDoctors ? (
+                              <option disabled>Loading doctors...</option>
+                            ) : (
+                              allDoctors.map((doctor) => (
+                                <option key={doctor.id} value={doctor.id}>
+                                  {doctor.name}
+                                </option>
+                              ))
+                            )}
                           </select>
                           {formErrors.selectedDoctor && (
                             <p className="text-red-500 text-sm mt-1">
@@ -661,10 +609,10 @@ Otherwise, continue the conversation naturally to gather information.`;
                         </div>
                       </div>
 
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div>
+                      <div className="space-y-6">
+                        <div className="md:w-1/2">
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Appointment Date *
+                            Select Date *
                           </label>
                           <div className="relative">
                             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -688,32 +636,87 @@ Otherwise, continue the conversation naturally to gather information.`;
                           )}
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Appointment Time *
-                          </label>
-                          <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <select
-                              name="appointmentTime"
-                              value={formData.appointmentTime}
-                              onChange={handleInputChange}
-                              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
-                                formErrors.appointmentTime
-                                  ? "border-red-500"
-                                  : "border-gray-300"
-                              }`}
-                            >
-                              <option value="">Select time</option>
-                              {timeSlots.map((time, idx) => (
-                                <option key={idx} value={time}>
-                                  {time}
-                                </option>
-                              ))}
-                            </select>
+                        <div className="w-full">
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Available Time Slots *
+                            </label>
+                            {loadingSlots && (
+                              <div className="flex items-center text-sm text-indigo-500 gap-1 font-semibold animate-pulse">
+                                Fetching availability...
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-100 dark:border-gray-700 transition-all">
+                            {loadingSlots ? (
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {[...Array(8)].map((_, i) => (
+                                  <Skeleton
+                                    key={i}
+                                    className="h-19 rounded-xl w-full"
+                                  />
+                                ))}
+                              </div>
+                            ) : !formData.appointmentDate ? (
+                              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                                <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                <p>
+                                  Please select a date first to view available
+                                  times
+                                </p>
+                              </div>
+                            ) : !availableSlots ||
+                              availableSlots.length === 0 ? (
+                              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                                <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                <p>
+                                  No slots available on this date. Try another
+                                  day!
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {availableSlots.map((slot) => {
+                                  const isSelected =
+                                    formData.appointmentTime ===
+                                    slot.slotNumber;
+                                  return (
+                                    <button
+                                      key={slot._id || slot.slotNumber}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSlotChange({
+                                          target: { value: slot.slotNumber },
+                                        })
+                                      }
+                                      className={`relative px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all transform hover:-translate-y-0.5 ${
+                                        isSelected
+                                          ? "border-blue-600 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shadow-sm"
+                                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm"
+                                      }`}
+                                    >
+                                      {isSelected && (
+                                        <div className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full p-0.5 shadow-md">
+                                          <CheckCircle className="w-3 h-3" />
+                                        </div>
+                                      )}
+                                      <div className="flex flex-col gap-0.5 text-center">
+                                        <span className="text-base font-bold whitespace-nowrap">
+                                          {slot.startTime}
+                                        </span>
+                                        <span className="text-xs opacity-70 whitespace-nowrap">
+                                          to {slot.endTime}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                           {formErrors.appointmentTime && (
-                            <p className="text-red-500 text-sm mt-1">
+                            <p className="text-red-500 text-sm mt-2 font-medium">
                               {formErrors.appointmentTime}
                             </p>
                           )}
@@ -787,37 +790,6 @@ Otherwise, continue the conversation naturally to gather information.`;
                           </p>
                         )}
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Current Symptoms (Optional)
-                        </label>
-                        <textarea
-                          name="symptoms"
-                          value={formData.symptoms}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
-                          placeholder="List any current symptoms..."
-                          rows="2"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Insurance Provider (Optional)
-                        </label>
-                        <div className="relative">
-                          <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                          <input
-                            type="text"
-                            name="insurance"
-                            value={formData.insurance}
-                            onChange={handleInputChange}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
-                            placeholder="Insurance company name"
-                          />
-                        </div>
-                      </div>
                     </div>
 
                     {/* Submit Button */}
@@ -886,7 +858,7 @@ Otherwise, continue the conversation naturally to gather information.`;
                             Doctor
                           </p>
                           <p className="font-bold text-gray-900 dark:text-white">
-                            {formData.selectedDoctor}
+                            {bookedAppointmentDetails?.doctorName}
                           </p>
                         </div>
                         <div>
@@ -894,7 +866,7 @@ Otherwise, continue the conversation naturally to gather information.`;
                             Specialty
                           </p>
                           <p className="font-bold text-gray-900 dark:text-white">
-                            {formData.specialty}
+                            {bookedAppointmentDetails?.specialty}
                           </p>
                         </div>
                         <div>
@@ -902,8 +874,8 @@ Otherwise, continue the conversation naturally to gather information.`;
                             Date & Time
                           </p>
                           <p className="font-bold text-gray-900 dark:text-white">
-                            {formData.appointmentDate} at{" "}
-                            {formData.appointmentTime}
+                            {bookedAppointmentDetails?.date} at{" "}
+                            {bookedAppointmentDetails?.time}
                           </p>
                         </div>
                         <div>
@@ -974,20 +946,6 @@ Otherwise, continue the conversation naturally to gather information.`;
                   Need Help?
                 </h3>
                 <div className="space-y-3">
-                  <button
-                    onClick={() => setActiveTab("aiAssistant")}
-                    className="w-full flex items-center gap-3 p-3 bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 rounded-lg transition-colors border border-transparent dark:border-gray-700"
-                  >
-                    <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    <div className="text-left">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        AI Assistant
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Get instant help
-                      </p>
-                    </div>
-                  </button>
                   <a
                     href="tel:+1234567890"
                     className="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors border border-transparent dark:border-gray-600"
@@ -1040,212 +998,11 @@ Otherwise, continue the conversation naturally to gather information.`;
 
         {/* My Appointments Tab */}
         {activeTab === "myAppointments" && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-colors duration-200">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                My Appointments
-              </h2>
-
-              {myAppointments.length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    No Appointments
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    You haven't booked any appointments yet
-                  </p>
-                  <button
-                    onClick={() => setActiveTab("book")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    Book Your First Appointment
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {myAppointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-shadow bg-white dark:bg-gray-800"
-                    >
-                      <div className="flex flex-col md:flex-row gap-6">
-                        <img
-                          src={appointment.image}
-                          alt={appointment.doctorName}
-                          className="w-24 h-24 rounded-lg object-cover"
-                        />
-
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                                Appointment ID: {appointment.id}
-                              </p>
-                              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                                {appointment.doctorName}
-                              </h3>
-                              <p className="text-blue-600 dark:text-blue-400 font-medium">
-                                {appointment.specialty}
-                              </p>
-                            </div>
-                            <span
-                              className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                                appointment.status === "Upcoming"
-                                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                  : appointment.status === "Completed"
-                                    ? "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                    : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                              }`}
-                            >
-                              {appointment.status}
-                            </span>
-                          </div>
-
-                          <div className="grid md:grid-cols-3 gap-4 mb-4">
-                            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                              <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Date
-                                </p>
-                                <p className="font-medium">
-                                  {appointment.date}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                              <Clock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Time
-                                </p>
-                                <p className="font-medium">
-                                  {appointment.time}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                              <MapPin className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Location
-                                </p>
-                                <p className="font-medium">
-                                  {appointment.location}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {appointment.status === "Upcoming" && (
-                            <div className="flex flex-wrap gap-3">
-                              {appointment.type === "Video Consultation" && (
-                                <button className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
-                                  <Video className="w-4 h-4" />
-                                  Join Video Call
-                                </button>
-                              )}
-                              <button className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
-                                <Calendar className="w-4 h-4" />
-                                Reschedule
-                              </button>
-                              <button className="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors">
-                                <Download className="w-4 h-4" />
-                                Download
-                              </button>
-                              <button className="inline-flex items-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg font-semibold transition-colors">
-                                <X className="w-4 h-4" />
-                                Cancel
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* AI Assistant Tab */}
-        {activeTab === "aiAssistant" && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors duration-200">
-            <div className="bg-linear-to-r from-blue-600 to-indigo-600 dark:from-blue-900 dark:to-indigo-900 p-6">
-              <div className="flex items-center gap-3 text-white">
-                <Bot className="w-8 h-8" />
-                <div>
-                  <h2 className="text-2xl font-bold">AI Booking Assistant</h2>
-                  <p className="text-blue-100 dark:text-blue-200">
-                    Get instant help with appointment booking
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col h-150">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-900">
-                {messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                        msg.role === "user"
-                          ? "bg-blue-600 text-white rounded-br-none"
-                          : "bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-md rounded-bl-none border border-gray-100 dark:border-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {msg.role === "assistant" && (
-                          <Bot className="w-5 h-5 mt-1 shrink-0 text-blue-600 dark:text-blue-400" />
-                        )}
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {isChatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 shadow-md border border-gray-100 dark:border-gray-700">
-                      <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="p-6 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-colors duration-200">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyPress={handleChatKeyPress}
-                    placeholder="Type your message..."
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
-                    disabled={isChatLoading}
-                  />
-                  <button
-                    onClick={handleChatSend}
-                    disabled={isChatLoading || !chatInput.trim()}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  AI assistant can help you book appointments, find doctors, and
-                  answer questions
-                </p>
-              </div>
-            </div>
-          </div>
+          <MyAppointments
+            appointments={myAppointments}
+            loading={loadingAppointments}
+            onRefresh={fetchAppointments}
+          />
         )}
       </div>
     </div>
