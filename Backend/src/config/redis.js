@@ -1,21 +1,39 @@
 import { createClient } from "redis";
 
+// Only attempt Redis if REDIS_URL is explicitly configured.
+// Without it, the agent runs without caching (no ECONNREFUSED spam in dev).
+const REDIS_URL = process.env.REDIS_URL;
+
 const redisClient = createClient({
-  url: process.env.REDIS_URL || "redis://127.0.0.1:6379",
+  url: REDIS_URL,
 });
 
-redisClient.on("error", (err) => console.log("❌ Redis Client Error", err));
+let connectionAttempted = false;
+
+redisClient.on("error", (err) => {
+  // Only log the first error to avoid console spam
+  if (!connectionAttempted) return;
+  console.warn("⚠️  Redis unavailable — caching disabled:", err.code);
+});
+
 redisClient.on("connect", () =>
   console.log("✅ Redis connected successfully!")
 );
 
 export const connectRedis = async () => {
+  // Skip silently if no REDIS_URL is configured (e.g., local dev)
+  if (!REDIS_URL) {
+    console.log("ℹ️  REDIS_URL not set — running without Redis cache.");
+    return;
+  }
+
   try {
+    connectionAttempted = true;
     if (!redisClient.isOpen) {
       await redisClient.connect();
     }
   } catch (err) {
-    console.error("Failed to connect to Redis", err);
+    console.warn("⚠️  Redis connection failed — caching disabled:", err.code);
   }
 };
 
