@@ -1,4 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { getAllDoctors } from "../../features/doctors/doctorSlice";
 import {
   Heart,
   Users,
@@ -8,9 +11,18 @@ import {
   Star,
   Target,
   Eye,
+  Loader2,
 } from "lucide-react";
 
 function About() {
+  const dispatch = useDispatch();
+  const { doctors, isLoading } = useSelector((state) => state.doctor);
+
+  useEffect(() => {
+    if (!doctors || doctors.length === 0) {
+      dispatch(getAllDoctors());
+    }
+  }, [dispatch, doctors]);
   const stats = [
     { icon: Users, value: "50,000+", label: "Happy Patients" },
     { icon: Award, value: "500+", label: "Expert Doctors" },
@@ -45,36 +57,20 @@ function About() {
     },
   ];
 
-  const team = [
-    {
-      name: "Dr. Sarah Johnson",
-      role: "Chief Medical Officer",
-      image:
-        "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop",
-      specialization: "Cardiology",
-    },
-    {
-      name: "Dr. Michael Chen",
-      role: "Head of Surgery",
-      image:
-        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop",
-      specialization: "General Surgery",
-    },
-    {
-      name: "Dr. Emily Rodriguez",
-      role: "Pediatrics Lead",
-      image:
-        "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=400&fit=crop",
-      specialization: "Pediatrics",
-    },
-    {
-      name: "Dr. James Anderson",
-      role: "Orthopedic Specialist",
-      image:
-        "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop",
-      specialization: "Orthopedics",
-    },
-  ];
+  // Real Doctors Data
+  const team =
+    doctors && doctors.length > 0
+      ? doctors.slice(0, 4).map((doc) => ({
+          name: doc.doctorDetails?.fullname || doc.doctor || "Doctor",
+          specialty: doc.specialization || "General",
+          experience: `${parseInt(doc.experience) || 0} years`,
+          rating: parseFloat(doc.rating || 4.5).toFixed(1),
+          patients: doc.totalAppointments || doc.reviewCount || 100,
+          image:
+            doc.doctorDetails?.profileImage ||
+            `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor}&background=random`,
+        }))
+      : [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
@@ -237,31 +233,54 @@ function About() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
-              <div
-                key={index}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300"
-              >
-                <div className="aspect-w-1 aspect-h-1">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-64 object-cover"
-                  />
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                    {member.name}
-                  </h3>
-                  <p className="text-blue-600 font-medium mb-2">
-                    {member.role}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    {member.specialization}
-                  </p>
-                </div>
+            {isLoading ? (
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 flex justify-center py-10">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
               </div>
-            ))}
+            ) : team.length > 0 ? (
+              team.map((doctor, index) => (
+                <div
+                  key={index}
+                  className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group"
+                >
+                  <div className="relative h-64 overflow-hidden">
+                    <img
+                      src={doctor.image}
+                      alt={doctor.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 px-3 py-1 rounded-full flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      <span className="text-sm font-semibold dark:text-gray-200">
+                        {doctor.rating}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                      {doctor.name}
+                    </h3>
+                    <p className="text-blue-600 dark:text-blue-400 font-medium mb-3">
+                      {doctor.specialty}
+                    </p>
+                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      <span>{doctor.experience}</span>
+                      <span>{doctor.patients}+ patients</span>
+                    </div>
+                    <Link
+                      to="/appointments"
+                      className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
+                    >
+                      Book Appointment
+                    </Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-1 md:col-span-2 lg:col-span-4 text-center py-10 text-gray-500 dark:text-gray-400">
+                No doctors currently listed.
+              </div>
+            )}
           </div>
         </div>
       </div>
