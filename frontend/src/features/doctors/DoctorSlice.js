@@ -1,11 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import doctorService from "../../services/doctorService";
 
-// Get doctors from localStorage
-const doctors = JSON.parse(localStorage.getItem("doctors"));
-
 const initialState = {
-  doctors: doctors ? doctors : [],
+  doctors: [],
   isError: false,
   isSuccess: false,
   isLoading: false,
@@ -50,7 +47,6 @@ export const doctorSlice = createSlice({
         state.isLoading = false;
         state.isSuccess = true;
         state.doctors = action.payload;
-        localStorage.setItem("doctors", JSON.stringify(action.payload));
       })
       .addCase(getAllDoctors.rejected, (state, action) => {
         state.isLoading = false;
