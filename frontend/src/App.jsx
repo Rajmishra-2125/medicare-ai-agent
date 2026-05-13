@@ -1,12 +1,16 @@
-import React from "react";
-import { useSelector } from "react-redux";
+import React, { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import Layout from "./Layout";
 
 // Panel Layouts
-import AdminLayout from './pannel/Admin/layout/AdminLayout'
-import DoctorLayout from './pannel/Doctor/layout/DoctorLayout'
-import PatientLayout from './pannel/Patient/layout/PatientLayout'
+import AdminLayout from "./pannel/Admin/layout/AdminLayout";
+import DoctorLayout from "./pannel/Doctor/layout/DoctorLayout";
+import PatientLayout from "./pannel/Patient/layout/PatientLayout";
+import DynamicMetadata from "./components/shared/DynamicMetadata.jsx";
+import ScrollToTop from "./components/shared/ScrollToTop.jsx";
+import { fetchNotifications } from "./features/notifications/notificationSlice.js";
+import PageLoader from "./components/skeletons/PageLoader.jsx";
 
 /**
  * App component acting as a dynamic layout switcher.
@@ -16,27 +20,42 @@ import PatientLayout from './pannel/Patient/layout/PatientLayout'
 function App() {
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
+  const dispatch = useDispatch();
 
-  // Root path redirection logic
-  if (location.pathname === "/") {
-    if (user) {
-      if (user.role === "ADMIN")
-        return <Navigate to="/admin/dashboard" replace />;
-      if (user.role === "DOCTOR")
-        return <Navigate to="/doctor/dashboard" replace />;
-      // Patients stay at "/" or redirect to dashboard/home?
-      // User's main.jsx has <Route path="" element={<PatientDashboard />} /> under protected patient route.
-      // So "/" for patients renders PatientDashboard.
-    } else {
-      return <Navigate to="/home" replace />;
+  useEffect(() => {
+    // Only fetch notifications for fully authenticated users (not in OTP phase)
+    if (user && !user.isOTP) {
+      dispatch(fetchNotifications());
     }
+  }, [user, dispatch]);
+
+  if (user && !user.isOTP) {
+    // Restrict Admin and Doctor strictly to their own routes
+    if (user.role === "ADMIN" && !location.pathname.startsWith("/admin")) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    if (user.role === "DOCTOR" && !location.pathname.startsWith("/doctor")) {
+      return <Navigate to="/doctor/dashboard" replace />;
+    }
+
+    // Redirect root path for PATIENT
+    if (location.pathname === "/") {
+      if (user.role === "PATIENT")
+        return <Navigate to="/patient/home" replace />;
+    }
+  } else if (location.pathname === "/") {
+    return <Navigate to="/home" replace />;
   }
 
-  // Default to public layout if not logged in
-  if (!user) {
+  // Default to public layout if not fully logged in
+  if (!user || user.isOTP) {
     return (
       <Layout>
-        <Outlet />
+        <ScrollToTop />
+        <DynamicMetadata />
+        <React.Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </React.Suspense>
       </Layout>
     );
   }
@@ -59,7 +78,11 @@ function App() {
 
   return (
     <LayoutComponent>
-      <Outlet />
+      <ScrollToTop />
+      <DynamicMetadata />
+      <React.Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </React.Suspense>
     </LayoutComponent>
   );
 }
