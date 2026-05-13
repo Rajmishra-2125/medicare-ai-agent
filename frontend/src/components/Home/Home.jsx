@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -25,9 +25,20 @@ import {
   FileText,
   Ambulance,
 } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
+import { toggleAgentChat } from "../../features/agent/agentSlice";
+import { getAllDoctors } from "../../features/doctors/doctorSlice";
+import { Skeleton } from "../ui/skeleton";
 
 function Home() {
-  const [chatOpen, setChatOpen] = useState(false);
+  const dispatch = useDispatch();
+  const { doctors, isLoading } = useSelector((state) => state.doctor);
+
+  useEffect(() => {
+    if (!doctors || doctors.length === 0) {
+      dispatch(getAllDoctors());
+    }
+  }, [dispatch, doctors]);
 
   // Stats data
   const stats = [
@@ -76,43 +87,20 @@ function Home() {
   ];
 
   // Top Doctors
-  const topDoctors = [
-    {
-      name: "Dr. Sarah Smith",
-      specialty: "Cardiologist",
-      experience: "15 years",
-      rating: 4.9,
-      patients: 2500,
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
-    },
-    {
-      name: "Dr. Michael Johnson",
-      specialty: "Neurologist",
-      experience: "12 years",
-      rating: 4.8,
-      patients: 1800,
+  const topDoctors = useMemo(() => {
+    if (!doctors || !Array.isArray(doctors)) return [];
+    return doctors.slice(0, 4).map((doc) => ({
+      id: doc._id || doc.doctorId,
+      name: doc.doctorDetails?.fullname || doc.doctor || "Doctor",
+      specialty: doc.specialization || "General",
+      experience: `${parseInt(doc.experience) || 0} years`,
+      rating: parseFloat(doc.rating || 4.5).toFixed(1),
+      patients: doc.totalAppointments || doc.reviewCount || 100,
       image:
-        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400",
-    },
-    {
-      name: "Dr. Emily Lee",
-      specialty: "Dermatologist",
-      experience: "10 years",
-      rating: 4.9,
-      patients: 2200,
-      image:
-        "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400",
-    },
-    {
-      name: "Dr. James Wilson",
-      specialty: "Orthopedic Surgeon",
-      experience: "18 years",
-      rating: 5.0,
-      patients: 3000,
-      image:
-        "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400",
-    },
-  ];
+        doc.doctorDetails?.profileImage ||
+        `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor || "Doctor"}&background=random`,
+    }));
+  }, [doctors]);
 
   // Services
   const services = [
@@ -214,7 +202,7 @@ function Home() {
                   <ChevronRight className="w-5 h-5" />
                 </Link>
                 <button
-                  onClick={() => setChatOpen(!chatOpen)}
+                  onClick={() => dispatch(toggleAgentChat())}
                   className="inline-flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all border-2 border-white/50"
                 >
                   <Bot className="w-5 h-5" />
@@ -367,44 +355,58 @@ function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {topDoctors.map((doctor, index) => (
-              <div
-                key={index}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group"
-              >
-                <div className="relative h-64 overflow-hidden">
-                  <img
-                    src={doctor.image}
-                    alt={doctor.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 px-3 py-1 rounded-full flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="text-sm font-semibold dark:text-gray-200">
-                      {doctor.rating}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    {doctor.name}
-                  </h3>
-                  <p className="text-blue-600 dark:text-blue-400 font-medium mb-3">
-                    {doctor.specialty}
-                  </p>
-                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    <span>{doctor.experience}</span>
-                    <span>{doctor.patients}+ patients</span>
-                  </div>
-                  <Link
-                    to="/doctors/appointments"
-                    className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm"
                   >
-                    Book Appointment
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    <Skeleton className="h-64 w-full rounded-none" />
+                    <div className="p-6">
+                      <Skeleton className="h-6 w-3/4 mb-4" />
+                      <Skeleton className="h-4 w-1/2 mb-6" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  </div>
+                ))
+              : topDoctors.map((doctor, index) => (
+                  <div
+                    key={index}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group"
+                  >
+                    <div className="relative h-64 overflow-hidden">
+                      <img
+                        src={doctor.image}
+                        alt={doctor.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                      <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                        <span className="text-sm font-semibold dark:text-gray-200">
+                          {doctor.rating}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                        {doctor.name}
+                      </h3>
+                      <p className="text-blue-600 dark:text-blue-400 font-medium mb-3">
+                        {doctor.specialty}
+                      </p>
+                      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <span>{doctor.experience}</span>
+                        <span>{doctor.patients}+ patients</span>
+                      </div>
+                      <Link
+                        to="/doctors/appointments"
+                        className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Book Appointment
+                      </Link>
+                    </div>
+                  </div>
+                ))}
           </div>
         </div>
       </section>
@@ -545,55 +547,6 @@ function Home() {
           </div>
         </div>
       </section>
-
-      {/* Floating AI Chat Button */}
-      {chatOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-125 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-50 flex flex-col transition-colors duration-200">
-          <div className="bg-linear-to-r from-blue-600 to-indigo-600 p-4 rounded-t-2xl flex justify-between items-center">
-            <div className="flex items-center gap-2 text-white">
-              <Bot className="w-6 h-6" />
-              <div>
-                <h3 className="font-semibold">AI Assistant</h3>
-                <p className="text-xs text-blue-100">Online now</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setChatOpen(false)}
-              className="text-white hover:bg-white/20 p-1 rounded"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 shadow-sm">
-              <p className="text-sm text-gray-700 dark:text-gray-200">
-                Hello! I'm your AI booking assistant. How can I help you today?
-              </p>
-            </div>
-          </div>
-          <div className="p-4 border-t dark:border-gray-700">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-2 border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              />
-              <button className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700">
-                <MessageCircle className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-2xl z-50 hover:scale-110 transition-all"
-        >
-          <Bot className="w-7 h-7" />
-        </button>
-      )}
     </div>
   );
 }
