@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import doctorService from "../../services/doctorService";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -23,7 +24,15 @@ import {
   X,
 } from "lucide-react";
 
+import { useDispatch, useSelector } from "react-redux";
+import { getAllDoctors } from "../../features/doctors/doctorSlice";
+
 function Doctors() {
+  const dispatch = useDispatch();
+  const { doctors, isLoading, isError, message } = useSelector(
+    (state) => state.doctor,
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("All");
   const [selectedExperience, setSelectedExperience] = useState("All");
@@ -31,319 +40,86 @@ function Doctors() {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
 
-  // Specialties for filtering
-  const specialties = [
-    { name: "All", icon: Stethoscope },
-    { name: "Cardiology", icon: Heart },
-    { name: "Neurology", icon: Brain },
-    { name: "Orthopedics", icon: Bone },
-    { name: "Ophthalmology", icon: Eye },
-    { name: "Pediatrics", icon: Baby },
-    { name: "Dermatology", icon: Activity },
-    { name: "General Medicine", icon: Stethoscope },
-  ];
+  useEffect(() => {
+    if (isError) {
+      console.error(message);
+    }
 
-  // Comprehensive doctors data
-  const allDoctors = [
-    {
-      id: 1,
-      name: "Dr. Sarah Smith",
-      specialty: "Cardiology",
-      subSpecialty: "Interventional Cardiology",
-      experience: 15,
-      rating: 4.9,
-      reviews: 342,
-      patients: 2500,
-      education: "MD, Harvard Medical School",
-      languages: ["English", "Spanish"],
-      location: "New York Medical Center",
-      availability: "Mon, Wed, Fri",
-      nextAvailable: "2026-02-06",
-      consultationFee: 150,
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
-      about:
-        "Specialized in treating complex cardiac conditions with over 15 years of experience.",
-      achievements: ["Board Certified", "Award Winner 2024", "500+ Surgeries"],
-      videoConsult: true,
-    },
-    {
-      id: 2,
-      name: "Dr. Michael Johnson",
-      specialty: "Neurology",
-      subSpecialty: "Clinical Neurophysiology",
-      experience: 12,
-      rating: 4.8,
-      reviews: 289,
-      patients: 1800,
-      education: "MD, Johns Hopkins University",
-      languages: ["English", "French"],
-      location: "Central Hospital",
-      availability: "Tue, Thu, Sat",
-      nextAvailable: "2026-02-07",
-      consultationFee: 140,
+    // Only dispatch if doctors data is not yet loaded
+    if (!doctors || doctors.length === 0) {
+      dispatch(getAllDoctors());
+    }
+  }, [dispatch, isError, message, doctors]);
+
+  // Map backend data to frontend structure once, using useMemo for efficiency
+  const mappedDoctors = useMemo(() => {
+    if (!doctors) return [];
+    return doctors.map((doc) => ({
+      id: doc._id,
+      name: doc.doctorDetails?.fullname || doc.doctor || "Doctor",
+      specialty: doc.specialization || "General",
+      subSpecialty: doc.qualification || "",
+      experience: parseInt(doc.experience) || 0,
+      rating: parseFloat(doc.rating).toFixed(1) || 0,
+      reviews: doc.reviewCount || 0,
+      patients: doc.totalAppointments || 0,
+      education: doc.qualification || "Medical Degree",
+      languages: ["English"], // Backend doesn't have languages field yet, defaulting
+      location: doc.clinicAddress
+        ? `${doc.clinicAddress.city}, ${doc.clinicAddress.state}`
+        : doc.clinicName || "Clinic",
+      availability: doc.availableDays?.join(", ") || "Mon-Fri",
+      nextAvailable: "Today", // continuous availability assumed for now
+      consultationFee: doc.consultationFee || 0,
       image:
-        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400",
-      about:
-        "Expert in neurological disorders and brain health with extensive research background.",
-      achievements: [
-        "Published Author",
-        "Research Leader",
-        "Top Neurologist 2025",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 3,
-      name: "Dr. Emily Lee",
-      specialty: "Dermatology",
-      subSpecialty: "Cosmetic Dermatology",
-      experience: 10,
-      rating: 4.9,
-      reviews: 456,
-      patients: 2200,
-      education: "MD, Stanford University",
-      languages: ["English", "Mandarin"],
-      location: "Skin Care Institute",
-      availability: "Mon, Tue, Thu",
-      nextAvailable: "2026-02-05",
-      consultationFee: 120,
-      image:
-        "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400",
-      about:
-        "Passionate about skin health and cosmetic procedures with a gentle approach.",
-      achievements: [
-        "Aesthetic Excellence Award",
-        "1000+ Happy Patients",
-        "Media Featured",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 4,
-      name: "Dr. James Wilson",
-      specialty: "Orthopedics",
-      subSpecialty: "Sports Medicine",
-      experience: 18,
-      rating: 5.0,
-      reviews: 521,
-      patients: 3000,
-      education: "MD, Yale School of Medicine",
-      languages: ["English"],
-      location: "Sports Medicine Center",
-      availability: "Mon, Wed, Fri, Sat",
-      nextAvailable: "2026-02-06",
-      consultationFee: 160,
-      image:
-        "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400",
-      about:
-        "Leading orthopedic surgeon specializing in sports-related injuries and joint replacement.",
-      achievements: [
-        "Olympic Team Physician",
-        "Innovation Award",
-        "2000+ Surgeries",
-      ],
-      videoConsult: false,
-    },
-    {
-      id: 5,
-      name: "Dr. Olivia Martinez",
-      specialty: "Pediatrics",
-      subSpecialty: "Child Development",
-      experience: 8,
-      rating: 4.7,
-      reviews: 198,
-      patients: 1200,
-      education: "MD, Columbia University",
-      languages: ["English", "Spanish"],
-      location: "Children's Health Center",
-      availability: "Tue, Wed, Thu",
-      nextAvailable: "2026-02-08",
-      consultationFee: 100,
-      image:
-        "https://images.unsplash.com/photo-1527613426441-4da17471b66d?w=400",
-      about:
-        "Caring pediatrician focused on preventive care and child wellness.",
-      achievements: ["Child Care Excellence", "Community Service Award"],
-      videoConsult: true,
-    },
-    {
-      id: 6,
-      name: "Dr. David Chen",
-      specialty: "Ophthalmology",
-      subSpecialty: "Retinal Surgery",
-      experience: 14,
-      rating: 4.9,
-      reviews: 367,
-      patients: 2100,
-      education: "MD, Duke University",
-      languages: ["English", "Mandarin", "Cantonese"],
-      location: "Eye Care Specialists",
-      availability: "Mon, Tue, Fri",
-      nextAvailable: "2026-02-07",
-      consultationFee: 145,
-      image:
-        "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400",
-      about: "Expert in advanced eye care and cutting-edge retinal treatments.",
-      achievements: [
-        "Laser Surgery Pioneer",
-        "Patient Choice Award",
-        "500+ Eye Surgeries",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 7,
-      name: "Dr. Rachel Thompson",
-      specialty: "General Medicine",
-      subSpecialty: "Family Practice",
-      experience: 20,
-      rating: 4.8,
-      reviews: 612,
-      patients: 4500,
-      education: "MD, University of Michigan",
-      languages: ["English"],
-      location: "Community Health Clinic",
-      availability: "Mon, Tue, Wed, Thu, Fri",
-      nextAvailable: "2026-02-05",
-      consultationFee: 90,
-      image:
-        "https://images.unsplash.com/photo-1638202993928-7267aad84c31?w=400",
-      about:
-        "Experienced family doctor providing comprehensive primary care for all ages.",
-      achievements: [
-        "20 Years Service",
-        "Community Hero Award",
-        "Top Family Doctor",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 8,
-      name: "Dr. Robert Kumar",
-      specialty: "Cardiology",
-      subSpecialty: "Electrophysiology",
-      experience: 16,
-      rating: 4.9,
-      reviews: 423,
-      patients: 2800,
-      education: "MD, Mayo Clinic",
-      languages: ["English", "Hindi"],
-      location: "Heart Institute",
-      availability: "Tue, Thu, Sat",
-      nextAvailable: "2026-02-09",
-      consultationFee: 155,
-      image:
-        "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400",
-      about:
-        "Specialist in cardiac rhythm disorders and pacemaker implantation.",
-      achievements: [
-        "Heart Health Champion",
-        "Research Excellence",
-        "1000+ Procedures",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 9,
-      name: "Dr. Amanda White",
-      specialty: "Neurology",
-      subSpecialty: "Headache & Pain Medicine",
-      experience: 9,
-      rating: 4.6,
-      reviews: 234,
-      patients: 1500,
-      education: "MD, Northwestern University",
-      languages: ["English"],
-      location: "Neurology Associates",
-      availability: "Mon, Wed, Fri",
-      nextAvailable: "2026-02-10",
-      consultationFee: 135,
-      image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=400",
-      about:
-        "Dedicated to helping patients manage chronic pain and neurological conditions.",
-      achievements: ["Pain Management Expert", "Patient Satisfaction Award"],
-      videoConsult: true,
-    },
-    {
-      id: 10,
-      name: "Dr. Christopher Lee",
-      specialty: "Orthopedics",
-      subSpecialty: "Joint Replacement",
-      experience: 22,
-      rating: 5.0,
-      reviews: 589,
-      patients: 3500,
-      education: "MD, Cleveland Clinic",
-      languages: ["English", "Korean"],
-      location: "Orthopedic Center of Excellence",
-      availability: "Mon, Thu, Fri",
-      nextAvailable: "2026-02-06",
-      consultationFee: 170,
-      image:
-        "https://images.unsplash.com/photo-1613500235600-883d15c3b1ec?w=400",
-      about:
-        "Renowned joint replacement surgeon with exceptional patient outcomes.",
-      achievements: [
-        "Lifetime Achievement",
-        "3000+ Joint Replacements",
-        "Innovation Leader",
-      ],
-      videoConsult: false,
-    },
-    {
-      id: 11,
-      name: "Dr. Lisa Anderson",
-      specialty: "Dermatology",
-      subSpecialty: "Medical Dermatology",
-      experience: 11,
-      rating: 4.8,
-      reviews: 378,
-      patients: 1900,
-      education: "MD, UCSF",
-      languages: ["English", "German"],
-      location: "Dermatology Clinic",
-      availability: "Tue, Wed, Sat",
-      nextAvailable: "2026-02-08",
-      consultationFee: 125,
-      image:
-        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400",
-      about:
-        "Focuses on treating complex skin conditions and skin cancer prevention.",
-      achievements: [
-        "Skin Cancer Awareness",
-        "Published Researcher",
-        "Top Dermatologist",
-      ],
-      videoConsult: true,
-    },
-    {
-      id: 12,
-      name: "Dr. Thomas Brown",
-      specialty: "Pediatrics",
-      subSpecialty: "Neonatal Care",
-      experience: 13,
-      rating: 4.9,
-      reviews: 445,
-      patients: 2300,
-      education: "MD, Boston Children's Hospital",
-      languages: ["English"],
-      location: "Pediatric Specialists",
-      availability: "Mon, Tue, Thu, Fri",
-      nextAvailable: "2026-02-07",
-      consultationFee: 110,
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400",
-      about: "Expert in newborn care and high-risk infant management.",
-      achievements: [
-        "NICU Excellence",
-        "Lifesaver Award",
-        "1000+ Newborns Treated",
-      ],
-      videoConsult: true,
-    },
-  ];
+        doc.doctorDetails?.profileImage ||
+        `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor}&background=random`,
+      about: doc.bio || `Experienced ${doc.specialization} specialist.`,
+      achievements: [], // Backend doesn't have achievements field yet
+      videoConsult: true, // Defaulting to true
+      doctorId: doc.doctorId, // Important for booking
+    }));
+  }, [doctors]);
+
+  // Specialties for filtering
+  // Dynamically generate specialties from fetched doctors
+  const specialties = useMemo(() => {
+    // Use the mappedDoctors for generating specialties
+    const uniqueSpecialties = new Set(
+      mappedDoctors.map((doc) => doc.specialty),
+    );
+    return [
+      { name: "All", icon: Stethoscope },
+      ...Array.from(uniqueSpecialties)
+        .sort()
+        .map((specialty) => ({
+          name: specialty,
+          icon: getSpecialtyIcon(specialty),
+        })),
+    ];
+  }, [mappedDoctors]); // Depend on mappedDoctors
+
+  // Helper function to get icon for specialty
+  function getSpecialtyIcon(specialty) {
+    const iconMap = {
+      Cardiologist: Heart,
+      Neurologist: Brain,
+      "Orthopedic Surgeon": Bone,
+      Ophthalmologist: Eye,
+      Pediatrician: Baby,
+      Dermatologist: Activity,
+      "General Physician": Stethoscope,
+      Psychiatrist: Brain,
+      "ENT Specialist": Activity,
+      Gynecologist: Activity,
+      Urologist: Activity,
+      Gastroenterologist: Activity,
+    };
+    return iconMap[specialty] || Stethoscope;
+  }
 
   // Filter doctors based on search and filters
-  const filteredDoctors = allDoctors.filter((doctor) => {
+  const filteredDoctors = mappedDoctors.filter((doctor) => {
     const matchesSearch =
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -567,7 +343,32 @@ function Doctors() {
         </div>
 
         {/* Doctors Grid/List */}
-        {filteredDoctors.length === 0 ? (
+        {isLoading ? (
+          <div
+            className={`grid gap-6 ${viewMode === "grid" ? "md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}
+          >
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden animate-pulse border border-transparent dark:border-gray-700 ${viewMode === "list" ? "flex flex-col md:flex-row h-auto p-6 gap-6" : "h-105"}`}
+              >
+                <div
+                  className={`${viewMode === "list" ? "w-full md:w-48 h-48 rounded-lg" : "h-64"} bg-gray-200 dark:bg-gray-700 shrink-0`}
+                ></div>
+                <div
+                  className={`space-y-4 ${viewMode === "list" ? "flex-1 py-2" : "p-6"}`}
+                >
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-4"></div>
+                  {viewMode === "list" && (
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded w-full mt-4"></div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredDoctors.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl transition-colors duration-200">
             <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -647,11 +448,11 @@ function Doctors() {
                         Consultation Fee
                       </p>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">
-                        ${doctor.consultationFee}
+                        ₹{doctor.consultationFee}
                       </p>
                     </div>
                     <Link
-                      to="/doctors/appointments"
+                      to="/appointments"
                       state={{ doctor: doctor }}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors shadow-lg hover:shadow-blue-500/30"
                     >
@@ -795,7 +596,7 @@ function Doctors() {
                         </div>
                       </div>
                       <Link
-                        to="/doctors/appointments"
+                        to="/appointments"
                         state={{ doctor: doctor }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg hover:shadow-blue-500/30"
                       >
