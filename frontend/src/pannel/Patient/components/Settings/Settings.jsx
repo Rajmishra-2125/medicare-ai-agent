@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { User, Lock, Bell, Camera, Save, Mail, Phone } from "lucide-react";
-import { useTheme } from "../../../context/ThemeContext";
+import { useTheme } from "../../../../context/ThemeContext";
 import { useSelector, useDispatch } from "react-redux";
 import {
   updateUserPersonalDetails,
