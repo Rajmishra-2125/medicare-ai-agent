@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getDashboardStats } from '../../../features/admin/AdminSlice'
+import { getDashboardStats } from "../../../features/admin/adminSlice";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import Skeleton from "../../../components/common/Skeleton";
 import { 
   Users, 
   UserRound, 
@@ -111,8 +112,43 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-150 items-center justify-center">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+      <div className="space-y-6 max-w-400 mx-auto animate-fade-in pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 flex justify-between items-start h-26">
+               <div className="space-y-3 w-3/4">
+                 <Skeleton className="h-4 w-32" />
+                 <Skeleton className="h-8 w-24" />
+               </div>
+               <Skeleton variant="circle" className="w-12 h-12 rounded-xl" />
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden h-112.5">
+             <div className="p-6 border-b border-gray-100 dark:border-slate-800">
+               <Skeleton className="h-6 w-48" />
+             </div>
+             <div className="p-6 space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-4 p-4 border border-gray-50 dark:border-slate-800 rounded-xl">
+                    <Skeleton variant="circle" className="w-10 h-10" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-3 w-1/4" />
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 h-112.5">
+             <Skeleton className="h-6 w-32 mb-6" />
+             <div className="space-y-3">
+               {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl w-full" />)}
+             </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -210,7 +246,6 @@ const AdminDashboard = () => {
               { label: "Add Doctor", link: "/admin/doctors", icon: UserPlus, bg: "bg-emerald-600 hover:bg-emerald-700 text-white" },
               { label: "Add Patient", link: "/admin/patients", icon: Plus, bg: "bg-purple-600 hover:bg-purple-700 text-white" },
               { label: "Medical Report", link: "/admin/medical-records", icon: FileText, bg: "bg-orange-600 hover:bg-orange-700 text-white" },
-              { label: "Export Data", link: "/admin/export", icon: Download, bg: "bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700" },
             ].map((action, index) => (
               <Link key={index} to={action.link} className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-200 text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 ${action.bg}`}>
                 <action.icon className="w-4 h-4" />
@@ -240,7 +275,7 @@ const AdminDashboard = () => {
             ))}
           </div>
         </div>
-        <div className="p-6 h-87.5 w-full relative" >
+        <div className="p-6 h-87.5 w-full relative">
           {isChartLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px]">
               <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />

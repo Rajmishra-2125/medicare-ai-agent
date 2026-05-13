@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import DashboardSkeleton from "../../../components/skeletons/DashboardSkeleton";
 import { 
   getAllAppointments, 
   getAllDoctors, 
@@ -153,13 +154,7 @@ const ManageAppointment = () => {
     }
   };
 
-  if (isLoading && !appointments?.length) {
-    return (
-      <div className="flex h-150 items-center justify-center">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-      </div>
-    );
-  }
+  if (isLoading) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6 max-w-400 mx-auto animate-fade-in pb-10 relative">
