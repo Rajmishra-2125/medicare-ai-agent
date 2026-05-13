@@ -3,7 +3,7 @@ import { CalendarRange, Calendar as CalendarIcon, Clock, Video, Building, Refres
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDoctorAppointments, updateDoctorAppointmentStatus } from '../../../features/appointments/doctorAppointmentSlice';
 import toast from 'react-hot-toast';
-import PrescriptionModal from '../components/PrescriptionModal';
+import PrescriptionModal from '../components/Prescriptions/PrescriptionModal';
 
 const DoctorAppointments = () => {
   const dispatch = useDispatch();
