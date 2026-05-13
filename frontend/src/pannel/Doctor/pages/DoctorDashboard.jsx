@@ -5,7 +5,7 @@ import {
   updateDoctorAppointmentStatus,
   resetDoctorAppointments
 } from "../../../features/appointments/doctorAppointmentSlice";
-import StatsCard from "../components/StatsCard";
+import StatsCard from "../components/Cards/StatsCard";
 import DashboardSkeleton from "../../../components/skeletons/DashboardSkeleton";
 import { Calendar, CheckCircle, Clock, IndianRupee, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
