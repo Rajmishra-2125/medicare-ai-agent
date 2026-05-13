@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import React from "react";
@@ -7,39 +7,40 @@ import {
   createBrowserRouter,
   createRoutesFromElements,
   Route,
-  Router,
   RouterProvider,
 } from "react-router-dom";
 
-import Services from './components/Services/Services.jsx'
-import About from "./components/About/About.jsx";
-import Contact from "./components/Contacts/Contact.jsx";
+// Core Public & Auth Pages (Immediate Load)
 import Home from "./components/Home/Home.jsx";
 import Login from "./components/Login/Login.jsx";
 import Register from "./components/Register/Register.jsx";
-import Doctors from "./components/Doctors/Doctors.jsx";
-import Appointments from "./components/Appointments/Appointments.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx"; // Import ProtectedRoute
-import RecoverAccount from "./components/Auth/RecoverAccount.jsx";
 import NotFound from "./components/NotFound/NotFound.jsx";
+import PageLoader from "./components/skeletons/PageLoader.jsx";
 
-// Panel Pages
-import AdminDasboard from './pannel/Admin/pages/AdminDashboard.jsx'
-import ManageAppointment from './pannel/Admin/pages/ManageAppointment.jsx'
-import ManageDoctor from './pannel/Admin/pages/ManageDoctor.jsx'
-import ManagePatient from "./pannel/Admin/pages/ManagePatient.jsx";
-import ManagePayment from "./pannel/Admin/pages/ManagePayment.jsx";
-import ManageSettings from "./pannel/Admin/pages/ManageSettings.jsx";
-import MedicalRecords from './pannel/Admin/pages/MedicalRecords.jsx'
-import ManageAnalytics from './pannel/Admin/pages/ManageAnalytics.jsx'
+// Lazy Loaded Auxiliary Public Pages
+const About = lazy(() => import("./components/About/About.jsx"));
+const Contact = lazy(() => import("./components/Contacts/Contact.jsx"));
+const Doctors = lazy(() => import("./components/Doctors/Doctors.jsx"));
+const Services = lazy(() => import("./components/Services/Services.jsx"));
+const Appointments = lazy(
+  () => import("./components/Appointments/Appointments.jsx"),
+);
+const RecoverAccount = lazy(
+  () => import("./components/Auth/RecoverAccount.jsx"),
+);
+const ForgotPassword = lazy(
+  () => import("./components/Auth/ForgotPassword.jsx"),
+);
+const ResetPassword = lazy(() => import("./components/Auth/ResetPassword.jsx"));
+const EmailVerification = lazy(
+  () => import("./components/Auth/EmailVerification.jsx"),
+);
 
-// Doctor Panel
-import DoctorDashboard from './pannel/Doctor/pages/Dashboard.jsx'
-
-// Patient Panel
-import PatientDashboard from "./pannel/Patient/pages/PatientDashboard.jsx";
-import Profile from './pannel/Patient/pages/Profile.jsx'
-import MyAppointments from './pannel/Patient/pages/MyAppointment.jsx'
+// Lazy Loaded Role Apps
+const AdminApp = lazy(() => import("./pannel/Admin/AdminApp"));
+const DoctorApp = lazy(() => import("./pannel/Doctor/DoctorApp"));
+const PatientApp = lazy(() => import("./pannel/Patient/PatientApp"));
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -47,41 +48,25 @@ const router = createBrowserRouter(
       <Route path="home" element={<Home />} />
       <Route path="about" element={<About />} />
       <Route path="contact" element={<Contact />} />
+      <Route path="services" element={<Services />} />
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
+      <Route path="verify-email" element={<EmailVerification />} />
       <Route path="recover-account" element={<RecoverAccount />} />
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password/:token" element={<ResetPassword />} />
       <Route path="doctors" element={<Doctors />} />
       <Route path="appointments" element={<Appointments />} />
-      <Route path="services" element={<Services />} />
 
-      {/* Admin Panel Routes */}
+      {/* Role-Based Panel Apps */}
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-        <Route path="admin/dashboard" element={<AdminDasboard />} />
-        <Route
-          path="admin/manage-appointments"
-          element={<ManageAppointment />}
-        />
-        <Route path="admin/manage-doctors" element={<ManageDoctor />} />
-        <Route path="admin/manage-patients" element={<ManagePatient />} />
-        <Route path="admin/manage-payments" element={<ManagePayment />} />
-        <Route path="admin/settings" element={<ManageSettings />} />
-        <Route
-          path="admin/manage-medical-records"
-          element={<MedicalRecords />}
-        />
-        <Route path="admin/manage-analytics" element={<ManageAnalytics />} />
+        <Route path="admin/*" element={<AdminApp />} />
       </Route>
-
-      {/* Doctor Panel Routes */}
       <Route element={<ProtectedRoute allowedRoles={["DOCTOR"]} />}>
-        <Route path="doctor/dashboard" element={<DoctorDashboard />} />
+        <Route path="doctor/*" element={<DoctorApp />} />
       </Route>
-
-      {/* Patient Panel Routes */}
       <Route element={<ProtectedRoute allowedRoles={["PATIENT"]} />}>
-        <Route path="" element={<PatientDashboard />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="my-appointments" element={<MyAppointments />} />
+        <Route path="patient/*" element={<PatientApp />} />
       </Route>
       {/* Catch-all 404 Route */}
       <Route path="*" element={<NotFound />} />
@@ -92,15 +77,41 @@ const router = createBrowserRouter(
 import { Provider } from "react-redux";
 import store from "./store/store.js";
 import { Toaster } from "react-hot-toast";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import { ThemeProvider } from "./context/ThemeContext.jsx";
+import { SocketProvider } from "./context/SocketContext.jsx";
+import * as Sentry from "@sentry/react";
+
+// Initialize Sentry for Error Tracking
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN || "",
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+
+// You will need to add VITE_GOOGLE_CLIENT_ID to your frontend .env file
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+// The PageLoader has been replaced by the rich GlobalSkeleton
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <ThemeProvider>
-        <RouterProvider router={router} />
-        <Toaster position="top-center" reverseOrder={false} />
+        <SocketProvider>
+          <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+            <Suspense fallback={<PageLoader />}>
+              <RouterProvider router={router} />
+            </Suspense>
+            <Toaster position="top-center" reverseOrder={false} />
+          </GoogleOAuthProvider>
+        </SocketProvider>
       </ThemeProvider>
     </Provider>
   </StrictMode>,
