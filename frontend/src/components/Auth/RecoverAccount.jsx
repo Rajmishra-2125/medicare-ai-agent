@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom"; // Assuming react-router-dom is used
-import { recoverAccount, reset } from "../../features/auth/authSlice";
+import { recoverAccount, reset } from "../../features/auth/AuthSlice";
 import toast from "react-hot-toast";
 import Spinner from "../shared/Spinner";
 import { RotateCcw, User, Lock, ArrowLeft } from "lucide-react";

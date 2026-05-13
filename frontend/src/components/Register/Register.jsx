@@ -6,7 +6,7 @@ import {
   googleLogin,
   reset,
   verifyOTP,
-} from "../../features/auth/authSlice";
+} from "../../features/auth/AuthSlice";
 import { useGoogleLogin } from "@react-oauth/google";
 import {
   User,

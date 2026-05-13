@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { login, googleLogin, reset } from "../../features/auth/authSlice";
+import { login, googleLogin, reset } from "../../features/auth/AuthSlice";
 import { GoogleLogin } from "@react-oauth/google";
 import {
   Mail,

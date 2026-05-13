@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { verifyOTP, register, reset } from "../../features/auth/authSlice";
+import { verifyOTP, register, reset } from "../../features/auth/AuthSlice";
 import { Mail, ArrowLeft, Loader2, KeyRound, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 

@@ -5,7 +5,7 @@ import {
   updateUserPersonalDetails,
   updateProfileAddress,
   updateUserAvatar,
-} from "../../features/auth/authSlice";
+} from "../../features/auth/AuthSlice";
 import { Camera, User, Mail, Phone, MapPin, Calendar, Save, X, Edit2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Spinner from "../shared/Spinner";
