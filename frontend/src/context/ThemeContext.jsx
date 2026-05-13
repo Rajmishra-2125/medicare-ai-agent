@@ -4,7 +4,7 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(
-    localStorage.getItem("theme") ? localStorage.getItem("theme") : "system"
+    localStorage.getItem("theme") ? localStorage.getItem("theme") : "system",
   );
 
   useEffect(() => {
