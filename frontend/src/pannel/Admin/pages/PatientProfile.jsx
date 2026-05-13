@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { UserRound, Mail, Phone, Calendar, ArrowLeft, ShieldAlert, AlertTriangle, Trash2, Ban, PlayCircle, Shield } from 'lucide-react';
-import { updateUserStatus, getAllUsers } from '../../../features/admin/adminSlice';
+import { updateUserStatus, getAllUsers } from '../../../features/admin/AdminSlice';
 import DashboardSkeleton from "../../../components/skeletons/DashboardSkeleton";
 import toast from 'react-hot-toast';
 

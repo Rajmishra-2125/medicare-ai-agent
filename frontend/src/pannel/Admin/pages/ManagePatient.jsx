@@ -6,7 +6,7 @@ import {
   getAllUsers, 
   deletePatient,
   reset 
-} from '../../../features/admin/adminSlice';
+} from '../../../features/admin/AdminSlice';
 import { 
   Search, 
   Filter, 

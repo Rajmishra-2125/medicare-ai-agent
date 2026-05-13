@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getAllAppointments } from "../../../features/admin/adminSlice";
+import { getAllAppointments } from "../../../features/admin/AdminSlice";
 import DashboardSkeleton from "../../../components/skeletons/DashboardSkeleton";
 import { generateInvoice } from "../../../utils/generateInvoice";
 import { 

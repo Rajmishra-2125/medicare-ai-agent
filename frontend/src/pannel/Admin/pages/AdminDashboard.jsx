@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getDashboardStats } from "../../../features/admin/adminSlice";
+import { getDashboardStats } from "../../../features/admin/AdminSlice";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import Skeleton from "../../../components/common/Skeleton";

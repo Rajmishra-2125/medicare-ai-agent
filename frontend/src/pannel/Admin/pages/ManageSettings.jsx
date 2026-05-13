@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../../context/ThemeContext";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUserPersonalDetails, updateUserAvatar, changePassword } from "../../../features/auth/authSlice";
+import { updateUserPersonalDetails, updateUserAvatar, changePassword } from "../../../features/auth/AuthSlice";
 import toast from "react-hot-toast";
 
 const ManageSettings = () => {

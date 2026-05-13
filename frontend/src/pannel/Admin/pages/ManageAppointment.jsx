@@ -9,7 +9,7 @@ import {
   createSlot, 
   bookAppointment, 
   rescheduleAppointment 
-} from '../../../features/admin/adminSlice';
+} from '../../../features/admin/AdminSlice';
 import { 
   Search, 
   Filter, 
