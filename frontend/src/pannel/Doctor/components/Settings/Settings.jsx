@@ -17,10 +17,10 @@ import {
   logout,
   deleteAccount,
   changePassword,
-} from "../../features/auth/authSlice";
+} from "../../../../features/auth/AuthSlice";
 import toast from 'react-hot-toast';
 
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../../../context/ThemeContext';
 
 const Settings = () => {
     const dispatch = useDispatch();
