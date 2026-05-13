@@ -76,7 +76,7 @@ const ManagePrescriptions = () => {
                 />
               </div>
             </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-700 min-h-[200px]">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700 min-h-50">
               {isLoading ? (
                 <div className="p-8 flex justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />

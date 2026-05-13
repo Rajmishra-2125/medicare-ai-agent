@@ -68,7 +68,7 @@ const DoctorAppointments = () => {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden min-h-[400px]">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden min-h-100">
         <div className="p-6">
           <div className="grid gap-4">
             {isLoading && !refreshing ? (

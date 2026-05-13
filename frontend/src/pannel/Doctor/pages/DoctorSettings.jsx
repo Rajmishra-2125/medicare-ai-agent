@@ -14,7 +14,7 @@ import {
   IndianRupee
 } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUserPersonalDetails, updateUserAvatar, changePassword } from "../../../features/auth/authSlice";
+import { updateUserPersonalDetails, updateUserAvatar, changePassword } from "../../../features/auth/AuthSlice";
 import doctorService from "../../../services/doctorService";
 import toast from "react-hot-toast";
 
@@ -143,7 +143,7 @@ const DoctorSettings = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-[1200px] mx-auto animate-fade-in pb-8">
+    <div className="space-y-6 max-w-300 mx-auto animate-fade-in pb-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Doctor Settings</h1>
@@ -174,7 +174,7 @@ const DoctorSettings = () => {
 
         {/* Main Content Area */}
         <div className="lg:col-span-3">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 sm:p-8 min-h-[500px]">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 sm:p-8 min-h-125">
             
             {/* 1. Profile Settings Tab */}
             {activeTab === "profile" && (
@@ -295,7 +295,7 @@ const DoctorSettings = () => {
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" checked={isAcceptingNewPatients} onChange={() => setIsAcceptingNewPatients(!isAcceptingNewPatients)} />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                       </label>
                     </div>
 
@@ -306,7 +306,7 @@ const DoctorSettings = () => {
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" checked={isVisible} onChange={() => setIsVisible(!isVisible)} />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                       </label>
                     </div>
                 </div>
