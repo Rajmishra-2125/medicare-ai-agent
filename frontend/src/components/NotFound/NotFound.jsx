@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Home, AlertTriangle } from 'lucide-react';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Home, AlertTriangle } from "lucide-react";
 
 const NotFound = () => {
   return (
@@ -15,10 +15,14 @@ const NotFound = () => {
         </div>
 
         {/* Error Message */}
-        <h1 className="text-9xl font-black text-gray-200 dark:text-gray-800 mb-4 tracking-tighter">404</h1>
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Page Not Found</h2>
+        <h1 className="text-9xl font-black text-gray-200 dark:text-gray-800 mb-4 tracking-tighter">
+          404
+        </h1>
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+          Page Not Found
+        </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-10 text-lg leading-relaxed">
-          Oops! The page you're looking for doesn't exist or has been moved. 
+          Oops! The page you're looking for doesn't exist or has been moved.
           Don't worry, even the best travelers get lost sometimes.
         </p>
 
