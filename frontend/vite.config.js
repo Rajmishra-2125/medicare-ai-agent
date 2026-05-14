@@ -24,7 +24,13 @@ export default defineConfig({
         manualChunks(id) {
           // Split node_modules into a separate vendor chunk to save memory during build
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            // Must include 'scheduler' with react because react-dom depends on it internally
+            if (
+              id.includes('/react/') || 
+              id.includes('/react-dom/') || 
+              id.includes('/react-router') ||
+              id.includes('/scheduler/')
+            ) {
               return 'vendor-react';
             }
             if (id.includes('lucide-react')) {
