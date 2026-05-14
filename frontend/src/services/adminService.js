@@ -9,20 +9,23 @@ const getDashboardStats = async (period = "week") => {
 };
 
 // Get all users
-const getAllUsers = async () => {
-  const response = await api.get(`${API_URL}/users`);
+const getAllUsers = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const response = await api.get(`${API_URL}/users${queryString ? `?${queryString}` : ""}`);
   return response.data;
 };
 
 // Get all doctors
-const getAllDoctors = async () => {
-  const response = await api.get(`${API_URL}/doctors`);
+const getAllDoctors = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const response = await api.get(`${API_URL}/doctors${queryString ? `?${queryString}` : ""}`);
   return response.data;
 };
 
 // Get all appointments
-const getAllAppointments = async () => {
-  const response = await api.get(`${API_URL}/appointments`);
+const getAllAppointments = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const response = await api.get(`${API_URL}/appointments${queryString ? `?${queryString}` : ""}`);
   return response.data;
 };
 
@@ -57,8 +60,9 @@ const deleteDoctor = async (doctorId) => {
 };
 
 // Get all slots
-const getAllSlots = async () => {
-  const response = await api.get(`${API_URL}/slots`);
+const getAllSlots = async (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  const response = await api.get(`${API_URL}/slots${queryString ? `?${queryString}` : ""}`);
   return response.data;
 };
 

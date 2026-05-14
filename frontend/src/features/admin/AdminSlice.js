@@ -7,6 +7,12 @@ const initialState = {
   doctors: [],
   appointments: [],
   slots: [],
+  pagination: {
+    users: null,
+    doctors: null,
+    appointments: null,
+    slots: null,
+  },
   isLoading: false,
   isChartLoading: false,
   isError: false,
@@ -35,9 +41,9 @@ export const getDashboardStats = createAsyncThunk(
 // Get all users
 export const getAllUsers = createAsyncThunk(
   "admin/getUsers",
-  async (_, thunkAPI) => {
+  async (params = {}, thunkAPI) => {
     try {
-      return await adminService.getAllUsers();
+      return await adminService.getAllUsers(params);
     } catch (error) {
       const message =
         (error.response &&
@@ -53,9 +59,9 @@ export const getAllUsers = createAsyncThunk(
 // Get all doctors
 export const getAllDoctors = createAsyncThunk(
   "admin/getDoctors",
-  async (_, thunkAPI) => {
+  async (params = {}, thunkAPI) => {
     try {
-      return await adminService.getAllDoctors();
+      return await adminService.getAllDoctors(params);
     } catch (error) {
       const message =
         (error.response &&
@@ -71,9 +77,9 @@ export const getAllDoctors = createAsyncThunk(
 // Get all appointments
 export const getAllAppointments = createAsyncThunk(
   "admin/getAppointments",
-  async (_, thunkAPI) => {
+  async (params = {}, thunkAPI) => {
     try {
-      return await adminService.getAllAppointments();
+      return await adminService.getAllAppointments(params);
     } catch (error) {
       const message =
         (error.response &&
@@ -89,9 +95,9 @@ export const getAllAppointments = createAsyncThunk(
 // Get all slots
 export const getAllSlots = createAsyncThunk(
   "admin/getSlots",
-  async (_, thunkAPI) => {
+  async (params = {}, thunkAPI) => {
     try {
-      return await adminService.getAllSlots();
+      return await adminService.getAllSlots(params);
     } catch (error) {
       const message =
         (error.response &&
@@ -307,7 +313,8 @@ export const adminSlice = createSlice({
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.users = action.payload.data;
+        state.users = action.payload.data.data;
+        state.pagination.users = action.payload.data.pagination;
       })
       .addCase(getAllUsers.rejected, (state, action) => {
         state.isLoading = false;
@@ -320,7 +327,8 @@ export const adminSlice = createSlice({
       .addCase(getAllDoctors.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.doctors = action.payload.data;
+        state.doctors = action.payload.data.data;
+        state.pagination.doctors = action.payload.data.pagination;
       })
       .addCase(getAllDoctors.rejected, (state, action) => {
         state.isLoading = false;
@@ -333,7 +341,8 @@ export const adminSlice = createSlice({
       .addCase(getAllAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.appointments = action.payload.data;
+        state.appointments = action.payload.data.data;
+        state.pagination.appointments = action.payload.data.pagination;
       })
       .addCase(getAllAppointments.rejected, (state, action) => {
         state.isLoading = false;
@@ -346,7 +355,8 @@ export const adminSlice = createSlice({
       .addCase(getAllSlots.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.slots = action.payload.data;
+        state.slots = action.payload.data.data;
+        state.pagination.slots = action.payload.data.pagination;
       })
       .addCase(getAllSlots.rejected, (state, action) => {
         state.isLoading = false;

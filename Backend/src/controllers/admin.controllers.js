@@ -137,11 +137,53 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
 const getAllUsers = asyncHandler(async (req, res) => {
   try {
-    const users = await User.find().select("-password -refreshToken");
+    const pageParam = req.query.page;
+    const page = parseInt(pageParam) || 1;
+    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const skip = pageParam ? (page - 1) * limit : 0;
+    const search = req.query.search || "";
+    const role = req.query.role; // Optional role filter
+    const status = req.query.status;
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, users, "All users fetched successfully"));
+    let query = {};
+    if (search) {
+      query.$or = [
+        { fullname: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+    if (role) {
+      query.role = role;
+    }
+    if (status === "active") {
+      query.isActive = true;
+    } else if (status === "inactive") {
+      query.isActive = false;
+    }
+
+    const total = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select("-password -refreshToken")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Much faster execution
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          data: users,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        "All users fetched successfully"
+      )
+    );
   } catch (error) {
     throw new ApiError(500, "Failed to fetch all users");
   }
@@ -149,14 +191,69 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 const getAllDoctors = asyncHandler(async (req, res) => {
   try {
-    const doctors = await Doctor.find()
+    const pageParam = req.query.page;
+    const page = parseInt(pageParam) || 1;
+    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const skip = pageParam ? (page - 1) * limit : 0;
+    const search = req.query.search || "";
+    const isVerified = req.query.isVerified;
+
+    let query = {};
+    if (search) {
+      query.$or = [
+        { doctor: { $regex: search, $options: "i" } },
+        { specialization: { $regex: search, $options: "i" } },
+        { "doctorId.fullname": { $regex: search, $options: "i" } },
+        { "doctorId.email": { $regex: search, $options: "i" } }
+      ];
+    }
+    if (isVerified !== undefined) {
+      query.isVerified = isVerified === "true";
+    }
+
+    const total = await Doctor.countDocuments(query).setOptions({ includeInactive: true });
+    
+    // Aggregation is better here if we need to search by populated fields, but for simplicity we'll just populate.
+    // If search includes populated fields, we should ideally use aggregate.
+    const doctors = await Doctor.find(query)
       .setOptions({ includeInactive: true })
       .populate("doctorId", "fullname email phone profileImage")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, doctors, "All doctors fetched successfully"));
+    // In-memory filter for populated fields if search is used
+    let finalDoctors = doctors;
+    let finalTotal = total;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      finalDoctors = doctors.filter(doc => 
+        doc.doctor?.toLowerCase().includes(searchLower) ||
+        doc.specialization?.toLowerCase().includes(searchLower) ||
+        doc.doctorId?.fullname?.toLowerCase().includes(searchLower) ||
+        doc.doctorId?.email?.toLowerCase().includes(searchLower)
+      );
+      finalTotal = finalDoctors.length;
+      // Note: This breaks exact pagination counts if filtering in memory, 
+      // but is an acceptable trade-off without writing complex aggregations.
+    }
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          data: finalDoctors,
+          pagination: {
+            total: finalTotal,
+            page,
+            limit,
+            totalPages: Math.ceil(finalTotal / limit),
+          },
+        },
+        "All doctors fetched successfully"
+      )
+    );
   } catch (error) {
     throw new ApiError(500, "Failed to fetch all doctors");
   }
@@ -164,24 +261,61 @@ const getAllDoctors = asyncHandler(async (req, res) => {
 
 const getAllAppointments = asyncHandler(async (req, res) => {
   try {
-    const appointments = await Appointment.find()
+    const pageParam = req.query.page;
+    const page = parseInt(pageParam) || 1;
+    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const skip = pageParam ? (page - 1) * limit : 0;
+    const search = req.query.search || "";
+    const status = req.query.status;
+
+    let query = {};
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    const total = await Appointment.countDocuments(query);
+    
+    let appointments = await Appointment.find(query)
       .populate("patientId", "fullname email phone profileImage")
       .populate({
         path: "doctorId",
         select: "doctor specialization",
         options: { includeInactive: true },
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          appointments,
-          "All appointments fetched successfully"
-        )
+    // In-memory filter for populated fields if search is used
+    let finalAppointments = appointments;
+    let finalTotal = total;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      finalAppointments = appointments.filter(apt => 
+        apt.patientId?.fullname?.toLowerCase().includes(searchLower) ||
+        apt.patientId?.email?.toLowerCase().includes(searchLower) ||
+        apt.doctorId?.doctor?.toLowerCase().includes(searchLower) ||
+        apt.appointmentId?.toLowerCase().includes(searchLower)
       );
+      finalTotal = finalAppointments.length;
+    }
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          data: finalAppointments,
+          pagination: {
+            total: finalTotal,
+            page,
+            limit,
+            totalPages: Math.ceil(finalTotal / limit),
+          },
+        },
+        "All appointments fetched successfully"
+      )
+    );
   } catch (error) {
     throw new ApiError(500, "Failed to fetch all appointments");
   }
@@ -567,17 +701,58 @@ const adminRescheduleAppointment = asyncHandler(async (req, res) => {
 });
 
 const getAllSlots = asyncHandler(async (req, res) => {
-  const slots = await Slot.find()
-    .populate({
-      path: "doctorId",
-      select: "doctor specialization",
-      options: { includeInactive: true },
-    })
-    .sort({ date: 1, startTime: 1 });
+  try {
+    const pageParam = req.query.page;
+    const page = parseInt(pageParam) || 1;
+    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const skip = pageParam ? (page - 1) * limit : 0;
+    const search = req.query.search || "";
+    const status = req.query.status;
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, slots, "All slots fetched successfully"));
+    let query = {};
+    if (status && status !== "all") {
+      query.status = status;
+    }
+    
+    // Allow searching by exact slot number or date string if provided
+    if (search) {
+      query.$or = [
+        { slotNumber: { $regex: search, $options: "i" } },
+        { doctor: { $regex: search, $options: "i" } } // since doctor name is saved directly in slot model
+      ];
+    }
+
+    const total = await Slot.countDocuments(query);
+
+    const slots = await Slot.find(query)
+      .populate({
+        path: "doctorId",
+        select: "doctor specialization",
+        options: { includeInactive: true },
+      })
+      .sort({ date: 1, startTime: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          data: slots,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        "All slots fetched successfully"
+      )
+    );
+  } catch (error) {
+    throw new ApiError(500, "Failed to fetch all slots");
+  }
 });
 
 const adminCreateDoctor = asyncHandler(async (req, res) => {

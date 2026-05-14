@@ -27,19 +27,42 @@ import toast from 'react-hot-toast';
 
 const ManagePatient = () => {
   const dispatch = useDispatch();
-  const { users, isLoading, isError, message, isSuccess } = useSelector((state) => state.admin);
+  const { users, pagination, isLoading, isError, message, isSuccess } = useSelector((state) => state.admin);
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   // Modals state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const navigate = useNavigate();
 
+  // Debounce search term
   useEffect(() => {
-    dispatch(getAllUsers());
-  }, [dispatch]);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(1); // Reset to first page on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset page to 1 when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    dispatch(getAllUsers({ 
+      page, 
+      limit, 
+      search: debouncedSearchTerm, 
+      role: 'PATIENT',
+      status: statusFilter === 'all' ? undefined : statusFilter 
+    }));
+  }, [dispatch, page, limit, debouncedSearchTerm, statusFilter]);
 
   useEffect(() => {
     if (isSuccess && message) {
@@ -52,38 +75,20 @@ const ManagePatient = () => {
     }
   }, [isSuccess, isError, message, dispatch]);
 
-  const patients = useMemo(() => {
-    if (!users) return [];
-    // Only return users with role PATIENT
-    return users.filter(user => user.role === 'PATIENT');
-  }, [users]);
-
-  const filteredPatients = useMemo(() => {
-    if (!patients) return [];
-    
-    return patients.filter(patient => {
-      const nameMatch = patient.fullname?.toLowerCase().includes(searchTerm.toLowerCase());
-      const emailMatch = patient.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      let statusMatch = true;
-      if (statusFilter === "active") statusMatch = patient.isActive === true;
-      else if (statusFilter === "inactive") statusMatch = patient.isActive === false;
-      
-      return (nameMatch || emailMatch) && statusMatch;
-    });
-  }, [patients, searchTerm, statusFilter]);
+  // Backend already filters by PATIENT and handles search/status
+  const filteredPatients = users || [];
 
   const stats = useMemo(() => {
-    if (!patients) return { total: 0, active: 0, new: 0 };
+    const total = pagination?.users?.total || 0;
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
     
     return {
-      total: patients.length,
-      active: patients.filter(p => p.isActive !== false).length,
-      new: patients.filter(p => new Date(p.createdAt) > thirtyDaysAgo).length
+      total: total,
+      active: filteredPatients.filter(p => p.isActive !== false).length,
+      new: filteredPatients.filter(p => new Date(p.createdAt) > thirtyDaysAgo).length
     };
-  }, [patients]);
+  }, [filteredPatients, pagination]);
 
   const handleDelete = async () => {
     if (!selectedPatient) return;
@@ -112,8 +117,8 @@ const ManagePatient = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: "Total Patients", value: stats.total, icon: Users, color: "indigo" },
-          { label: "Active Accounts", value: stats.active, icon: Activity, color: "emerald" },
-          { label: "New (Last 30 Days)", value: stats.new, icon: UserPlus, color: "sky" },
+          { label: "Active (This Page)", value: stats.active, icon: Activity, color: "emerald" },
+          { label: "New (This Page)", value: stats.new, icon: UserPlus, color: "sky" },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-4">
@@ -245,6 +250,31 @@ const ManagePatient = () => {
              </div>
              <p className="text-gray-500 dark:text-slate-400 font-medium">No patients found.</p>
              <p className="text-xs text-gray-400 mt-1">Try adjusting your search or filters.</p>
+          </div>
+        )}
+
+        {/* Pagination UI */}
+        {pagination?.users && pagination.users.totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              Showing <span className="font-medium text-gray-900 dark:text-white">{(page - 1) * limit + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(page * limit, pagination.users.total)}</span> of <span className="font-medium text-gray-900 dark:text-white">{pagination.users.total}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button 
+                onClick={() => setPage(p => Math.min(pagination.users.totalPages, p + 1))}
+                disabled={page === pagination.users.totalPages}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
