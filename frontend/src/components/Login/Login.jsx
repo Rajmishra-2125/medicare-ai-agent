@@ -306,7 +306,7 @@ const Login = () => {
                     <div>
                       <button
                         type="button"
-                        onClick={() => handleGoogleLogin()}
+                        onClick={handleGoogleLogin}
                         className="w-full inline-flex justify-center py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                       >
                         <svg className="h-5 w-5" viewBox="0 0 24 24">
