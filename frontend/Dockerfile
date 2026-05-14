@@ -16,6 +16,9 @@ COPY . .
 # Set environment variable to ensure production build
 ENV NODE_ENV=production
 
+# Increase Node memory limit to prevent out-of-memory errors during Vite build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Pass in any VITE_ variables needed for the build (optional, usually handled by .env)
 # ARG VITE_API_URL
 # ENV VITE_API_URL=$VITE_API_URL
