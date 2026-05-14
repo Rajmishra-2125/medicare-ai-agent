@@ -1,13 +1,16 @@
 import multer from "multer";
-
+import os from "os";
+import path from "path";
 
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
-      cb(null, "./public/temp")
+      // Use OS temp directory - works on local, Render, Vercel, and all cloud platforms
+      cb(null, os.tmpdir());
     },
     filename: function (req, file, cb) {
-      // const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, file.originalname);
+      // Add timestamp to prevent filename collisions when multiple users upload simultaneously
+      const uniqueName = `${Date.now()}-${file.originalname}`;
+      cb(null, uniqueName);
     }
 })
 
