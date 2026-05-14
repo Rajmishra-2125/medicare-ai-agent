@@ -58,7 +58,7 @@ const uploadRecord = asyncHandler(async (req, res) => {
   const record = await MedicalRecord.create({
     patientId: patient._id,
     title,
-    fileUrl: uploadedFile.url,
+    fileUrl: uploadedFile.secure_url,
     fileType: fileType,
     fileSizeBytes: uploadedFile.bytes,
     uploadedBy: uploaderId,

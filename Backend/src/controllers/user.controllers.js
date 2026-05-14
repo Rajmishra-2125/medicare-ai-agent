@@ -123,7 +123,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     req.user?._id,
     {
       $set: {
-        profileImage: avatar.url,
+        profileImage: avatar.secure_url,
       }
     },
     {
