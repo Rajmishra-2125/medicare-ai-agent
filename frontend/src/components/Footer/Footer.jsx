@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import {
   Mail,
   Phone,
@@ -202,18 +203,18 @@ const Footer = () => {
               © 2026 Medicare. All rights reserved.
             </p>
             <div className="flex space-x-6 text-sm">
-              <a
-                href="/privacy"
+              <Link
+                to="/privacy-policy"
                 className="hover:text-orange-500 transition-colors"
               >
                 Privacy Policy
-              </a>
-              <a
-                href="/terms"
+              </Link>
+              <Link
+                to="/terms"
                 className="hover:text-orange-500 transition-colors"
               >
                 Terms of Service
-              </a>
+              </Link>
               <a
                 href="/cookies"
                 className="hover:text-orange-500 transition-colors"

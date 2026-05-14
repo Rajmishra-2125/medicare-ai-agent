@@ -36,6 +36,8 @@ const ResetPassword = lazy(() => import("./components/Auth/ResetPassword.jsx"));
 const EmailVerification = lazy(
   () => import("./components/Auth/EmailVerification.jsx"),
 );
+const PrivacyPolicy = lazy(() => import("./components/Legal/PrivacyPolicy.jsx"));
+const TermsOfService = lazy(() => import("./components/Legal/TermsOfService.jsx"));
 
 // Lazy Loaded Role Apps
 const AdminApp = lazy(() => import("./pannel/Admin/AdminApp"));
@@ -57,6 +59,8 @@ const router = createBrowserRouter(
       <Route path="reset-password/:token" element={<ResetPassword />} />
       <Route path="doctors" element={<Doctors />} />
       <Route path="appointments" element={<Appointments />} />
+      <Route path="privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="terms" element={<TermsOfService />} />
 
       {/* Role-Based Panel Apps */}
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
