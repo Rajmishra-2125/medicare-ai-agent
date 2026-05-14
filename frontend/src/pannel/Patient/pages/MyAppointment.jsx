@@ -23,7 +23,7 @@ import {
   Plus,
   FileText,
 } from "lucide-react";
-import appointmentService from "../../../services/appointmentsService";
+import appointmentService from "../../../services/appointmentService";
 
 function MyAppointments({
   appointments = [],

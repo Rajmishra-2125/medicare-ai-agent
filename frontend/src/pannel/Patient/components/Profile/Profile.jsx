@@ -5,10 +5,10 @@ import {
   updateUserPersonalDetails,
   updateProfileAddress,
   updateUserAvatar,
-} from "../../features/auth/AuthSlice";
+} from "../../../../features/auth/AuthSlice";
 import { Camera, User, Mail, Phone, MapPin, Calendar, Save, X, Edit2 } from "lucide-react";
 import toast from "react-hot-toast";
-import Spinner from "../shared/Spinner";
+import Spinner from "../../../../components/shared/Spinner";
 
 const Profile = () => {
   const dispatch = useDispatch();
