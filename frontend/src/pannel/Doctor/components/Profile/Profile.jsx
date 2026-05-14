@@ -11,7 +11,7 @@ import {
   Stethoscope, Award, Briefcase, IndianRupee, Building, Star, Activity 
 } from "lucide-react";
 import toast from "react-hot-toast";
-import Spinner from "../shared/Spinner";
+import Spinner from "../../../../components/shared/Spinner";
 import api from "../../../../services/api";
 
 const Profile = () => {

@@ -27,8 +27,8 @@ import {
   Star,
 } from "lucide-react";
 import MyAppointments from "./MyAppointments";
-import appointmentService from "../../services/appointmentService";
-import doctorService from "../../services/doctorService";
+import appointmentService from "../../../../services/appointmentService";
+import doctorService from "../../../../services/doctorService";
 
 function Appointments() {
   const location = useLocation();
