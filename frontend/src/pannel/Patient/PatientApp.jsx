@@ -2,13 +2,13 @@ import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 // Lazy Loaded Patient Panel Pages
-const PatientDashboard = lazy(() => import("./pages/PatientDashboard.jsx"));
+const PatientDashboard = lazy(() => import("../../components/Home/Home.jsx"));
 const Profile = lazy(() => import("./pages/Profile.jsx"));
 const MyAppointments = lazy(() => import("./components/Appointments/MyAppointments.jsx"));
 const PatientSettings = lazy(() => import("./components/Settings/Settings.jsx"));
 const PaymentPage = lazy(() => import("./pages/PaymentPage.jsx"));
 const Doctors = lazy(() => import("./components/Doctors/Doctors.jsx"));
-const Appointments = lazy(() => import("./components/Appointments/Appointments.jsx"));
+const Appointments = lazy(() => import("../../components/Appointments/Appointments.jsx"));
 
 // Note: Ensure that paths align with Sidebar links
 const PatientApp = () => {

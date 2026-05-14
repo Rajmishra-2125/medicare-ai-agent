@@ -10,7 +10,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
-import { logout, reset } from "../../../../../features/auth/authSlice";
+import { logout, reset } from "../../../../../features/auth/AuthSlice";
 import toast from "react-hot-toast";
 import { Bell, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "../../../../../context/ThemeContext";
