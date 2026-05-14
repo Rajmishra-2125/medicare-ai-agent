@@ -36,9 +36,9 @@ app.use(
 // Security & Logger
 app.use(
   helmet({
-    crossOriginOpenerPolicy: {
-      policy: "unsafe-none",
-    },
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false,
   })
 );
 
