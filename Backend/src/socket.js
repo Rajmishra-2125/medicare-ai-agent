@@ -8,7 +8,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:5173",
   process.env.FRONTEND_URL,
-];
+].filter(Boolean);
 
 const io = new Server(server, {
   cors: {

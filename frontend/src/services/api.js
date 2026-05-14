@@ -28,6 +28,7 @@ const processQueue = (error, token = null) => {
 export const forceLogout = () => {
   localStorage.removeItem("user");
   localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
   if (window.location.pathname !== '/login') {
     window.location.href = '/login';
   }
@@ -89,17 +90,26 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Attempt to refresh the token using an independent axios instance
-        // so we don't trigger the interceptor again
-        await axios.get(
-          `${api.defaults.baseURL}/auth/refresh-token`,
-          { withCredentials: true } // Crucial: passes the secure refresh_token HttpOnly cookie
+        // Use the configured api instance (has auth header) + send refreshToken from
+        // localStorage as body fallback for when cross-domain cookies are blocked.
+        const refreshToken = localStorage.getItem("refreshToken");
+        const { data } = await api.post(
+          `/auth/refresh-token`,
+          refreshToken ? { refreshToken } : {}
         );
+
+        // Update the stored accessToken so future requests use the new one
+        if (data?.data?.accessToken) {
+          localStorage.setItem("accessToken", data.data.accessToken);
+        }
+        if (data?.data?.refreshToken) {
+          localStorage.setItem("refreshToken", data.data.refreshToken);
+        }
 
         isRefreshing = false;
         processQueue(null, true);
 
-        // Replay the original request now that cookies are successfully refreshed
+        // Replay the original request now that the token is refreshed
         return api(originalRequest);
       } catch (err) {
         processQueue(err, null);

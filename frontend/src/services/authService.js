@@ -20,6 +20,9 @@ const googleLogin = async (tokenData) => {
     if (response.data.data.accessToken) {
       localStorage.setItem("accessToken", response.data.data.accessToken);
     }
+    if (response.data.data.refreshToken) {
+      localStorage.setItem("refreshToken", response.data.data.refreshToken);
+    }
   }
 
   return response.data.data.user;
@@ -33,6 +36,9 @@ const login = async (userData) => {
     localStorage.setItem("user", JSON.stringify(response.data.data.user));
     if (response.data.data.accessToken) {
       localStorage.setItem("accessToken", response.data.data.accessToken);
+    }
+    if (response.data.data.refreshToken) {
+      localStorage.setItem("refreshToken", response.data.data.refreshToken);
     }
   }
 
@@ -48,6 +54,9 @@ const verifyOTP = async (otpData) => {
     if (response.data.data.accessToken) {
       localStorage.setItem("accessToken", response.data.data.accessToken);
     }
+    if (response.data.data.refreshToken) {
+      localStorage.setItem("refreshToken", response.data.data.refreshToken);
+    }
   }
 
   return response.data.data.user;
@@ -62,6 +71,7 @@ const logout = async () => {
   }
   localStorage.removeItem("user");
   localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
 };
 
 // Update user details
