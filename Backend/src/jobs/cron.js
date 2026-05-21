@@ -1,5 +1,7 @@
 import cron from "node-cron";
 import { Doctor } from "../models/doctor.models.js";
+import { Appointment } from "../models/appointment.models.js";
+import { Slot } from "../models/slots.models.js";
 import { generateSlotsForDoctor } from "../services/slotGenerationService.js";
 
 // Schedule task to run at 00:00 (Midnight) every day
@@ -27,6 +29,42 @@ const setupCronJobs = () => {
       console.log("✅ Daily Slot Generation Job Completed.");
     } catch (error) {
       console.error("❌ Cron Job Failed:", error);
+    }
+  });
+
+  // Run every minute to clean up abandoned unpaid appointments (older than 15 mins)
+  cron.schedule("* * * * *", async () => {
+    try {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+      // Find all appointments that are pending payment and older than 15 mins
+      const expiredAppointments = await Appointment.find({
+        status: "PENDING",
+        paymentStatus: "PENDING",
+        createdAt: { $lte: fifteenMinutesAgo },
+      });
+
+      if (expiredAppointments.length > 0) {
+        console.log(`🧹 Found ${expiredAppointments.length} abandoned unpaid appointments. Cleaning up...`);
+
+        for (const appointment of expiredAppointments) {
+          // Free the slot
+          await Slot.findByIdAndUpdate(appointment.slotId, {
+            status: "AVAILABLE",
+            bookedBy: null,
+          });
+
+          // Cancel the appointment
+          appointment.status = "CANCELLED";
+          appointment.cancellationReason = "Auto-cancelled due to payment timeout (15 mins)";
+          appointment.cancelledAt = new Date();
+          await appointment.save();
+        }
+
+        console.log("✅ Cleanup of abandoned appointments completed.");
+      }
+    } catch (error) {
+      console.error("❌ Cleanup Cron Job Failed:", error);
     }
   });
 
