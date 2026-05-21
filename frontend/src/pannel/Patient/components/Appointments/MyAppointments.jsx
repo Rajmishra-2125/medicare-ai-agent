@@ -30,10 +30,13 @@ import ReviewModal from "../Review/ReviewModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { Star, CreditCard } from "lucide-react";
 import AppointmentDetailsModal from "./AppointmentDetailsModal";
+import { useDebounce } from "../../../../hooks/useDebounce";
+import { useSessionStorage } from "../../../../hooks/useSessionStorage";
 
 function MyAppointments({ appointments = [], loading = false, error = null, onRefresh }) {
-  const [selectedFilter, setSelectedFilter] = useState("all"); // all, upcoming, completed, cancelled
+  const [selectedFilter, setSelectedFilter] = useSessionStorage("my_appointments_filter", "all"); // all, upcoming, completed, cancelled
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -106,9 +109,9 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
       });
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    // Apply search filter (debounced)
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter(
         (apt) =>
           apt.doctorId?.doctor?.toLowerCase().includes(query) ||
@@ -118,7 +121,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
       );
     }
     return filtered;
-  }, [currentAppointments, selectedFilter, searchQuery]);
+  }, [currentAppointments, selectedFilter, debouncedSearchQuery]);
 
 
 
@@ -446,6 +449,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
                                         `https://ui-avatars.com/api/?name=${appointment.doctorId?.doctor || appointment.doctorName || 'Doctor'}&background=random`
                                     }
                                     alt={appointment.doctorId?.doctor || appointment.doctorName}
+                                    loading="lazy"
                                     className="w-16 h-16 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 shadow-sm"
                                 />
                                 <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm">

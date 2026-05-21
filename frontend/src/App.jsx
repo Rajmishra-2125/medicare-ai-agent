@@ -10,7 +10,9 @@ import PatientLayout from "./pannel/Patient/layout/PatientLayout";
 import DynamicMetadata from "./components/shared/DynamicMetadata.jsx";
 import ScrollToTop from "./components/shared/ScrollToTop.jsx";
 import { fetchNotifications } from "./features/notifications/notificationSlice.js";
+import { checkAuthStatus } from "./features/auth/AuthSlice.js";
 import PageLoader from "./components/skeletons/PageLoader.jsx";
+import CookieConsent from "./components/shared/CookieConsent.jsx";
 
 /**
  * App component acting as a dynamic layout switcher.
@@ -23,11 +25,27 @@ function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    // Only fetch notifications for fully authenticated users (not in OTP phase)
+    // 1. Silent token verification to ensure cookie is still valid
+    if (user) {
+      dispatch(checkAuthStatus());
+    }
+
+    // 2. Only fetch notifications for fully authenticated users (not in OTP phase)
     if (user && !user.isOTP) {
       dispatch(fetchNotifications());
     }
-  }, [user, dispatch]);
+  }, [dispatch]); // Removed user from dependency to avoid infinite loop / re-fetching
+
+  useEffect(() => {
+    // 3. Cross-tab logout synchronization
+    const handleStorageChange = (e) => {
+      if (e.key === 'logoutEvent') {
+        window.location.href = '/login';
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   if (user && !user.isOTP) {
     // Restrict Admin and Doctor strictly to their own routes
@@ -56,6 +74,7 @@ function App() {
         <React.Suspense fallback={<PageLoader />}>
           <Outlet />
         </React.Suspense>
+        <CookieConsent />
       </Layout>
     );
   }
@@ -83,6 +102,7 @@ function App() {
       <React.Suspense fallback={<PageLoader />}>
         <Outlet />
       </React.Suspense>
+      <CookieConsent />
     </LayoutComponent>
   );
 }
