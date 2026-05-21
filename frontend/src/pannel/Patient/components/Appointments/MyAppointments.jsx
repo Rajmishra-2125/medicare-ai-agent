@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import ReviewModal from "../Review/ReviewModal.jsx";
 import { useNavigate } from "react-router-dom";
 import { Star, CreditCard } from "lucide-react";
+import AppointmentDetailsModal from "./AppointmentDetailsModal";
 
 function MyAppointments({ appointments = [], loading = false, error = null, onRefresh }) {
   const [selectedFilter, setSelectedFilter] = useState("all"); // all, upcoming, completed, cancelled
@@ -500,6 +501,10 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
                                 
                                 <div className="flex gap-2">
                                     <button 
+                                        onClick={() => {
+                                            setSelectedAppointment(appointment);
+                                            setShowDetailsModal(true);
+                                        }}
                                         className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                                         title="View Details"
                                     >
@@ -781,6 +786,16 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
                 setReviewAppointment(null);
             }}
             onReviewAdded={() => handleRefresh()}
+        />
+    )}
+
+    {showDetailsModal && selectedAppointment && (
+        <AppointmentDetailsModal 
+            appointment={selectedAppointment}
+            onClose={() => {
+                setShowDetailsModal(false);
+                setSelectedAppointment(null);
+            }}
         />
     )}
 
