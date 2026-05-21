@@ -1,4 +1,5 @@
 import api from "./api";
+import { cacheManager } from "../utils/cacheManager";
 
 // Get current doctor's profile
 const getDoctorDetails = async () => {
@@ -20,7 +21,24 @@ const updateDoctorDetails = async (doctorData) => {
 }
 
 const getDoctorsProfiles = async () => {
+    const CACHE_KEY = "all_doctors_profiles";
+    const cachedData = cacheManager.get(CACHE_KEY);
+    
+    if (cachedData) {
+      // Stale-while-revalidate: Return cached data immediately, then fetch new data in background
+      api.get("/doctors/profiles").then(response => {
+        if (response.data?.data) {
+          cacheManager.set(CACHE_KEY, response.data.data, 10 * 60 * 1000);
+        }
+      }).catch(() => {}); // ignore bg errors
+      
+      return cachedData;
+    }
+
     const response = await api.get("/doctors/profiles");
+    if (response.data?.data) {
+      cacheManager.set(CACHE_KEY, response.data.data, 10 * 60 * 1000); // 10 minutes cache
+    }
     return response.data.data || [];
 }
 
