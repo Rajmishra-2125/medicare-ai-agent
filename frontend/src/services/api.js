@@ -27,22 +27,22 @@ const processQueue = (error, token = null) => {
 // Keeps session clearing logic in one clean, exported module
 export const forceLogout = () => {
   localStorage.removeItem("user");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  // Tokens are in HttpOnly cookies, so we can't remove them here. 
+  // We should ideally call the /auth/logout endpoint, but if we are here we might already be 401.
+  
+  // Trigger cross-tab logout synchronization
+  window.localStorage.setItem('logoutEvent', Date.now().toString());
+
   if (window.location.pathname !== '/login') {
     window.location.href = '/login';
   }
 };
 
 // 4. Request Interceptor (Crucial for Cross-Domain Auth)
-// Attaches the accessToken from localStorage to every request.
-// This ensures authentication works even if the browser blocks third-party cookies (e.g. Safari, Incognito).
+// Since we are using HttpOnly cookies, we do not need to attach Authorization headers from localStorage.
+// withCredentials: true ensures the cookies are sent automatically.
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
     return config;
   },
   (error) => {
@@ -90,21 +90,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Use the configured api instance (has auth header) + send refreshToken from
-        // localStorage as body fallback for when cross-domain cookies are blocked.
-        const refreshToken = localStorage.getItem("refreshToken");
-        const { data } = await api.post(
-          `/auth/refresh-token`,
-          refreshToken ? { refreshToken } : {}
-        );
+        // Since we use HttpOnly cookies, we just call the endpoint. 
+        // The browser will automatically attach the refreshToken cookie.
+        await api.post(`/auth/refresh-token`, {});
 
-        // Update the stored accessToken so future requests use the new one
-        if (data?.data?.accessToken) {
-          localStorage.setItem("accessToken", data.data.accessToken);
-        }
-        if (data?.data?.refreshToken) {
-          localStorage.setItem("refreshToken", data.data.refreshToken);
-        }
+        // Note: The backend will set new cookies in the response headers.
+        // We no longer need to save them to localStorage.
 
         isRefreshing = false;
         processQueue(null, true);

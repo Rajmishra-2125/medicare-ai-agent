@@ -193,6 +193,20 @@ export const deleteAccount = createAsyncThunk(
   },
 );
 
+// Check Auth Status (Silent token verification)
+export const checkAuthStatus = createAsyncThunk(
+  "auth/checkStatus",
+  async (_, thunkAPI) => {
+    try {
+      return await authService.getCurrentUser();
+    } catch (error) {
+      // If we fail to get current user, session is dead. Clear user.
+      localStorage.removeItem("user");
+      return thunkAPI.rejectWithValue("Session expired");
+    }
+  }
+);
+
 export const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -354,10 +368,14 @@ export const authSlice = createSlice({
           action.payload.message ||
           "Account recovered successfully. Please login.";
       })
-      .addCase(recoverAccount.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
+      .addCase(checkAuthStatus.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.isAuthenticated = true;
+      })
+      .addCase(checkAuthStatus.rejected, (state, action) => {
+        state.user = null;
+        state.isAuthenticated = false;
+        // Don't set error message as it's a silent check
       });
   },
 });
