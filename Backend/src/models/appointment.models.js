@@ -117,12 +117,18 @@ const appointmentSchema = new Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["CREDIT_CARD", "DEBIT_CARD", "UPI", "WALLET", "CASH", "RAZORPAY"],
+      enum: ["CREDIT_CARD", "DEBIT_CARD", "UPI", "WALLET", "CASH", "RAZORPAY", "CASHFREE"],
     },
     razorpayOrderId: {
       type: String,
     },
     razorpayPaymentId: {
+      type: String,
+    },
+    cashfreeOrderId: {
+      type: String,
+    },
+    cashfreeSessionId: {
       type: String,
     },
     paidAt: {
