@@ -67,9 +67,6 @@ export const createOrder = asyncHandler(async (req, res) => {
       customer_name: patient.fullname || "Patient",
       customer_email: patient.email || "patient@medicare.com",
       customer_phone: patient.phone || "9999999999",
-    },
-    order_meta: {
-      return_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/patient/appointments` // Fallback URL
     }
   };
 
