@@ -27,7 +27,7 @@ import appointmentService from "../../../../services/appointmentService";
 import paymentService from "../../../../services/paymentService";
 import toast from "react-hot-toast";
 import ReviewModal from "../Review/ReviewModal.jsx";
-import RazorpayCheckout from "../../../../components/Payment/RazorpayCheckout.jsx";
+import { useNavigate } from "react-router-dom";
 import { Star, CreditCard } from "lucide-react";
 
 function MyAppointments({ appointments = [], loading = false, error = null, onRefresh }) {
@@ -54,6 +54,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
   const [reviewAppointment, setReviewAppointment] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAppointment, setPaymentAppointment] = useState(null);
+  const navigate = useNavigate();
 
   // Standalone mode state
   const [localAppointments, setLocalAppointments] = useState([]);
@@ -510,8 +511,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
                                      (appointment.paymentStatus?.toUpperCase() !== 'PAID') && (
                                         <button 
                                             onClick={() => {
-                                                setPaymentAppointment(appointment);
-                                                setShowPaymentModal(true);
+                                                navigate(`/patient/payment/${appointment._id}`);
                                             }}
                                             className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
                                             title="Pay Now"
@@ -784,65 +784,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         />
     )}
 
-    {/* Payment Modal */}
-    {showPaymentModal && paymentAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-800">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payment</h2>
-                    <button
-                        onClick={() => {
-                            setShowPaymentModal(false);
-                            setPaymentAppointment(null);
-                        }}
-                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
 
-                <div className="space-y-4 mb-6">
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Consultation Fee</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                            ₹{paymentAppointment.consultationFee || 0}
-                        </p>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Doctor:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                                Dr. {paymentAppointment.doctorId?.doctorDetails?.fullname || paymentAppointment.doctorId?.doctor || "Unknown"}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Date:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                                {formatDate(paymentAppointment.date)}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Time:</span>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                                {formatTime(paymentAppointment.timeSlots)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-6">
-                    <RazorpayCheckout
-                        appointmentId={paymentAppointment._id}
-                        appointmentFee={paymentAppointment.consultationFee || 0}
-                        patientName={paymentAppointment.patientId?.fullname || "Patient"}
-                        doctorName={paymentAppointment.doctorId?.doctorDetails?.fullname || paymentAppointment.doctorId?.doctor || "Doctor"}
-                        onPaymentSuccess={handlePaymentSuccess}
-                    />
-                </div>
-            </div>
-        </div>
-    )}
     </>
   )
 
