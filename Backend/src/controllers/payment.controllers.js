@@ -9,17 +9,18 @@ import { User } from "../models/user.models.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
 // Initialize Cashfree instance
-const initializeCashfree = () => {
+const getCashfreeInstance = () => {
   if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
     throw new ApiError(
       500,
       "Cashfree API keys are not configured in environment variables"
     );
   }
-  Cashfree.XClientId = process.env.CASHFREE_APP_ID;
-  Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
+  
   // Use SANDBOX for dev/test, PRODUCTION for live
-  Cashfree.XEnvironment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX; 
+  const environment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+  
+  return new Cashfree(environment, process.env.CASHFREE_APP_ID, process.env.CASHFREE_SECRET_KEY);
 };
 
 // Create a new Cashfree Order
@@ -42,7 +43,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Appointment consultation fee is already paid");
   }
 
-  initializeCashfree();
+  const cashfree = getCashfreeInstance();
 
   // Cashfree amount is in standard decimals (e.g. 500.00)
   const fee = appointment.consultationFee ? Number(appointment.consultationFee) : 0;
@@ -73,7 +74,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   };
 
   try {
-    const response = await Cashfree.PGCreateOrder("2023-08-01", request);
+    const response = await cashfree.PGCreateOrder(request);
 
     // Save session ID for future reference
     appointment.cashfreeOrderId = response.data.order_id;
@@ -102,10 +103,10 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Appointment not found");
   }
 
-  initializeCashfree();
+  const cashfree = getCashfreeInstance();
 
   try {
-    const response = await Cashfree.PGFetchOrder("2023-08-01", order_id);
+    const response = await cashfree.PGFetchOrder(order_id);
     
     if (response.data.order_status !== "PAID") {
       appointment.paymentStatus = "FAILED";
