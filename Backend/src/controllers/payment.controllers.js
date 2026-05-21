@@ -1,4 +1,4 @@
-import { Cashfree } from "cashfree-pg";
+import { Cashfree, CFEnvironment } from "cashfree-pg";
 import crypto from "crypto";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -19,7 +19,7 @@ const initializeCashfree = () => {
   Cashfree.XClientId = process.env.CASHFREE_APP_ID;
   Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
   // Use SANDBOX for dev/test, PRODUCTION for live
-  Cashfree.XEnvironment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? Cashfree.Environment.PRODUCTION : Cashfree.Environment.SANDBOX; 
+  Cashfree.XEnvironment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX; 
 };
 
 // Create a new Cashfree Order
