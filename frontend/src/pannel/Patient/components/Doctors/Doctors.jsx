@@ -426,7 +426,7 @@ function Doctors() {
                       </p>
                     </div>
                     <Link
-                      to="/appointments"
+                      to="/patient/book-appointment"
                       state={{ doctor: doctor }}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors shadow-lg hover:shadow-blue-500/30"
                     >
@@ -573,7 +573,7 @@ function Doctors() {
                         </div>
                       </div>
                       <Link
-                        to="/appointments"
+                        to="/patient/book-appointment"
                         state={{ doctor: doctor }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg hover:shadow-blue-500/30"
                       >
