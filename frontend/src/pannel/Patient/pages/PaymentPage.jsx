@@ -21,17 +21,7 @@ import toast from "react-hot-toast";
 import appointmentService from "../../../services/appointmentService";
 import paymentService from "../../../services/paymentService";
 
-// ── Razorpay Script Loader ──────────────────────────────────────────────────
-const loadRazorpayScript = () =>
-  new Promise((resolve) => {
-    if (document.getElementById("razorpay-checkout-script")) return resolve(true);
-    const script = document.createElement("script");
-    script.id = "razorpay-checkout-script";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
+import { load } from '@cashfreepayments/cashfree-js';
 
 function PaymentPage() {
   const { appointmentId } = useParams();
@@ -74,43 +64,40 @@ function PaymentPage() {
     if (!appointment) return;
     setPaying(true);
     try {
-      // 1. Load Razorpay SDK
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        toast.error("Failed to load payment gateway. Check internet connection.");
-        setPaying(false);
-        return;
-      }
+      // 1. Load Cashfree SDK
+      const cashfree = await load({
+        mode: "sandbox", // Switch to "production" when live
+      });
 
-      // 2. Create order
+      // 2. Create order on Backend
       const orderRes = await paymentService.createOrder(appointment._id);
       const order = orderRes?.data || orderRes;
-      if (!order?.id) {
-        toast.error("Could not create payment order. Please try again.");
+      
+      if (!order?.payment_session_id) {
+        toast.error("Could not create payment session. Please try again.");
         setPaying(false);
         return;
       }
 
-      // 3. Open Razorpay checkout
-      const doctorName =
-        appointment.doctorId?.doctorDetails?.fullname ||
-        appointment.doctorId?.doctor ||
-        "Doctor";
+      // 3. Open Cashfree checkout modal
+      let checkoutOptions = {
+        paymentSessionId: order.payment_session_id,
+        redirectTarget: "_modal",
+      };
 
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "MediCare",
-        description: `Consultation with Dr. ${doctorName}`,
-        image: "https://cdn-icons-png.flaticon.com/512/3845/3845868.png",
-        order_id: order.id,
-        handler: async (response) => {
+      cashfree.checkout(checkoutOptions).then(async (result) => {
+        if (result.error) {
+          console.error("Cashfree Checkout Error:", result.error);
+          setResult({ success: false });
+          setPaying(false);
+          toast.error(result.error.message || "Payment failed or cancelled.");
+        }
+        
+        if (result.paymentDetails) {
+          // Verify Payment
           try {
             const verifyRes = await paymentService.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+              order_id: order.order_id,
               appointmentId: appointment._id,
             });
             const updatedAppointment = verifyRes?.data || verifyRes;
@@ -121,23 +108,11 @@ function PaymentPage() {
           } finally {
             setPaying(false);
           }
-        },
-        prefill: {},
-        theme: { color: "#2563eb" },
-        modal: {
-          ondismiss: () => setPaying(false),
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", () => {
-        setResult({ success: false });
-        setPaying(false);
+        }
       });
-      rzp.open();
     } catch (err) {
-      console.error("Payment error:", err);
-      toast.error(err?.message || "Payment failed. Please try again.");
+      console.error("Payment initialization error:", err);
+      toast.error(err?.message || "Failed to initialize payment. Please try again.");
       setPaying(false);
     }
   }, [appointment]);
@@ -256,11 +231,11 @@ function PaymentPage() {
                     ₹{result.data.consultationFee || "—"}
                   </span>
                 </div>
-                {result.data.razorpayPaymentId && (
+                {result.data.cashfreeOrderId && (
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-200 dark:border-gray-600">
-                    <span className="text-gray-400">Payment ID</span>
+                    <span className="text-gray-400">Order ID</span>
                     <span className="text-gray-500 dark:text-gray-300 font-mono text-[11px]">
-                      {result.data.razorpayPaymentId}
+                      {result.data.cashfreeOrderId}
                     </span>
                   </div>
                 )}
@@ -481,7 +456,7 @@ function PaymentPage() {
               <span>•</span>
               <div className="flex items-center gap-1.5">
                 <Lock className="w-4 h-4 text-blue-500" />
-                <span>Powered by Razorpay</span>
+                <span>Powered by Cashfree</span>
               </div>
             </div>
           </div>
