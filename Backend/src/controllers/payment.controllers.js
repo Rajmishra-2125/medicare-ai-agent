@@ -19,7 +19,7 @@ const initializeCashfree = () => {
   Cashfree.XClientId = process.env.CASHFREE_APP_ID;
   Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
   // Use SANDBOX for dev/test, PRODUCTION for live
-  Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; 
+  Cashfree.XEnvironment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? Cashfree.Environment.PRODUCTION : Cashfree.Environment.SANDBOX; 
 };
 
 // Create a new Cashfree Order
