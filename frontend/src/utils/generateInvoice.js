@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 /**
  * Generates and downloads a PDF Invoice for a specific transaction.
@@ -62,7 +62,7 @@ export const generateInvoice = (transaction) => {
     ]
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 110,
     head: [["Service Description", "Date", "Payment Method", "Status", "Amount"]],
     body: tableData,

@@ -23,6 +23,7 @@ const ManagePayment = () => {
   const dispatch = useDispatch();
   const { appointments, isLoading } = useSelector((state) => state.admin);
   const [searchTerm, setSearchTerm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
     dispatch(getAllAppointments());
@@ -30,24 +31,33 @@ const ManagePayment = () => {
 
   const transactions = useMemo(() => {
     if (!appointments) return [];
-    return appointments.map(apt => ({
-      id: apt._id,
-      patient: apt.patientId?.fullname || "Deleted User",
-      patientEmail: apt.patientId?.email || "",
-      doctor: `Dr. ${apt.doctorId?.doctor || "Unknown"}`,
-      specialization: apt.doctorId?.specialization || "",
-      amount: apt.consultationFee || apt.doctorId?.consultationFee || 0,
-      date: apt.date,
-      status: apt.paymentStatus || (apt.status === "COMPLETED" ? "PAID" : "PENDING"),
-      method: apt.paymentMethod || "Online",
-      appointmentStatus: apt.status
-    })).filter(txn => {
+    return appointments.map(apt => {
+      const fakeTxnId = `TXN-${apt._id.substring(apt._id.length - 8).toUpperCase()}`;
+      return {
+        id: fakeTxnId,
+        originalId: apt._id,
+        patient: apt.patientId?.fullname || "Deleted User",
+        patientEmail: apt.patientId?.email || "",
+        doctor: `Dr. ${apt.doctorId?.doctor || "Unknown"}`,
+        specialization: apt.doctorId?.specialization || "",
+        amount: apt.consultationFee || apt.doctorId?.consultationFee || 0,
+        date: apt.date,
+        status: apt.paymentStatus || (apt.status === "COMPLETED" ? "PAID" : "PENDING"),
+        method: apt.paymentMethod || "Online",
+        appointmentStatus: apt.status
+      };
+    }).filter(txn => {
       const search = searchTerm.toLowerCase();
       return txn.id.toLowerCase().includes(search) || 
+             txn.originalId.toLowerCase().includes(search) ||
              txn.patient.toLowerCase().includes(search) || 
              txn.doctor.toLowerCase().includes(search);
     });
   }, [appointments, searchTerm]);
+
+  const visibleTransactions = useMemo(() => {
+    return transactions.slice(0, visibleCount);
+  }, [transactions, visibleCount]);
 
   const stats = useMemo(() => {
     let totalRevenue = 0;
@@ -170,8 +180,8 @@ const ManagePayment = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-              {transactions.length > 0 ? (
-                transactions.map((txn, index) => (
+              {visibleTransactions.length > 0 ? (
+                visibleTransactions.map((txn, index) => (
                   <tr key={txn.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="px-6 py-4">
                       <span className="text-sm font-semibold text-gray-900 dark:text-white">{txn.id}</span>
@@ -214,8 +224,16 @@ const ManagePayment = () => {
         </div>
         
         {/* Pagination placeholder */}
-        <div className="p-4 border-t border-gray-100 dark:border-slate-800 flex items-center text-sm text-gray-500 dark:text-slate-400">
-          <span>Showing {transactions.length} entries</span>
+        <div className="p-4 border-t border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-500 dark:text-slate-400 gap-4">
+          <span>Showing {visibleTransactions.length} of {transactions.length} entries</span>
+          {visibleCount < transactions.length && (
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 10)}
+              className="px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors font-medium"
+            >
+              View More
+            </button>
+          )}
         </div>
       </div>
     </div>
