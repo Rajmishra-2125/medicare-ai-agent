@@ -24,6 +24,8 @@ import {
   Video,
   FileText,
   Ambulance,
+  Sparkles,
+  Baby,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleAgentChat } from "../../features/agent/agentSlice";
@@ -80,10 +82,10 @@ function Home() {
   const specialties = [
     { icon: Heart, name: "Cardiology", doctors: 12 },
     { icon: Brain, name: "Neurology", doctors: 8 },
-    { icon: Eye, name: "Ophthalmology", doctors: 6 },
+    { icon: Sparkles, name: "Dermatology", doctors: 6 },
     { icon: Activity, name: "Orthopedics", doctors: 10 },
-    { icon: Stethoscope, name: "General Medicine", doctors: 15 },
-    { icon: Ambulance, name: "Emergency Care", doctors: 20 },
+    { icon: Baby, name: "Pediatrics", doctors: 15 },
+    { icon: Eye, name: "Ophthalmology", doctors: 7 },
   ];
 
   // Top Doctors
