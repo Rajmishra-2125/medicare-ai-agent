@@ -96,7 +96,12 @@ function Home() {
     return defaultSpecialties.map((spec) => {
       const count = doctors.filter((doc) => {
         const specName = (doc.specialization || "").toLowerCase().trim();
-        return specName === spec.name.toLowerCase().trim();
+        const category = spec.name.toLowerCase().trim();
+        return specName === category || 
+               (category.length >= 5 && specName.startsWith(category.substring(0, 5))) ||
+               (specName.length >= 5 && category.startsWith(specName.substring(0, 5))) ||
+               specName.includes(category) || 
+               category.includes(specName);
       }).length;
 
       return {
