@@ -37,12 +37,14 @@ export default function CookieConsent() {
           
           <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-col sm:flex-row">
             <button
+              type="button"
               onClick={handleDecline}
               className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl transition-colors whitespace-nowrap"
             >
               Essential Only
             </button>
             <button
+              type="button"
               onClick={handleAccept}
               className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 rounded-xl transition-all whitespace-nowrap"
             >

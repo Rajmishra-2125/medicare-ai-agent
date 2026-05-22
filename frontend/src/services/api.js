@@ -33,8 +33,15 @@ export const forceLogout = () => {
   // Trigger cross-tab logout synchronization
   window.localStorage.setItem('logoutEvent', Date.now().toString());
 
-  if (window.location.pathname !== '/login') {
+  // Check if we are on a protected route
+  const protectedRoutes = ['/admin', '/doctor', '/patient'];
+  const isProtected = protectedRoutes.some(route => window.location.pathname.startsWith(route));
+
+  if (isProtected && window.location.pathname !== '/login') {
     window.location.href = '/login';
+  } else if (window.location.pathname !== '/login') {
+    // If we're on a public page, just reload to let Redux catch the logged-out state
+    window.location.reload();
   }
 };
 
