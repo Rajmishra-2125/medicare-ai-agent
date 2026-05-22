@@ -186,7 +186,7 @@ const CookiePolicy = () => {
                 <div className="text-xs space-y-1.5 text-blue-900 dark:text-blue-300">
                   <p className="font-bold">How it protects you:</p>
                   <p>When you log in, if the browser blocks HttpOnly cookies, our system securely saves duplicate encrypted tokens inside browser `localStorage`.</p>
-                  <p>Our API calls then dynamically attach these tokens as an `Authorization: Bearer <token>` request header. This completely prevents redirection loops, unexpected session logouts, and authenticates you seamlessly!</p>
+                  <p>Our API calls then dynamically attach these tokens as an `Authorization: Bearer &lt;token&gt;` request header. This completely prevents redirection loops, unexpected session logouts, and authenticates you seamlessly!</p>
                 </div>
               </div>
             </Section>
