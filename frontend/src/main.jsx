@@ -38,6 +38,7 @@ const EmailVerification = lazy(
 );
 const PrivacyPolicy = lazy(() => import("./components/Legal/PrivacyPolicy.jsx"));
 const TermsOfService = lazy(() => import("./components/Legal/TermsOfService.jsx"));
+const CookiePolicy = lazy(() => import("./components/Legal/CookiePolicy.jsx"));
 
 // Lazy Loaded Role Apps
 const AdminApp = lazy(() => import("./pannel/Admin/AdminApp"));
@@ -61,6 +62,8 @@ const router = createBrowserRouter(
       <Route path="appointments" element={<Appointments />} />
       <Route path="privacy-policy" element={<PrivacyPolicy />} />
       <Route path="terms" element={<TermsOfService />} />
+      <Route path="cookies" element={<CookiePolicy />} />
+      <Route path="cookie-policy" element={<CookiePolicy />} />
 
       {/* Role-Based Panel Apps */}
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
