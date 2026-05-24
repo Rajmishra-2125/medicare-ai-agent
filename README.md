@@ -1,6 +1,6 @@
 # 🏥 Doctor Appointment Management System
 
-A comprehensive full-stack healthcare application built with **Node.js**, **Express**, **React**, and **MongoDB**. This system enables patients to book appointments with doctors, manage medical records, process payments, and communicate in real-time.
+A comprehensive full-stack healthcare application built with **Node.js**, **Express**, **React**, and **MongoDB**. This system enables patients to book appointments with doctors, manage medical records, and access an intelligent AI-powered assistant for healthcare guidance. The platform provides seamless appointment management, real-time updates, and secure payments, all enhanced by our advanced **MediBot** assistant.
 
 ---
 
@@ -23,7 +23,12 @@ The application is deployed and running live on:
 - Medical records and prescription management
 - Video/audio consultation support (Socket.io)
 - Rate and review doctors
-- 24/7 AI-powered MediBot assistant
+- **🤖 24/7 AI-Powered MediBot Assistant** - Intelligent healthcare companion for:
+  - Finding the right doctor based on symptoms and concerns
+  - Booking appointments seamlessly with personalized recommendations
+  - Medical consultation queries and symptom analysis
+  - Health tips and preventive care guidance
+  - Treatment recommendations and health education
 
 ### 👨‍💼 For Doctors
 - Complete profile management with credentials
@@ -69,6 +74,10 @@ The application is deployed and running live on:
 - **Real-time**: Socket.io Client
 - **Icons**: Lucide React
 - **Notifications**: React Hot Toast
+
+### Language Composition
+- **JavaScript**: 99.3%
+- **Other**: 0.7%
 
 ---
 
@@ -242,7 +251,7 @@ VITE_CLOUDINARY_UPLOAD_PRESET=your_preset
 | Medical Records | `/medical-records` | Prescriptions and patient history |
 | Payments | `/payments` | Razorpay orders and verification |
 | Notifications | `/notifications` | Real-time alerts |
-| AI Agent | `/agent` | MediBot assistance |
+| AI Agent | `/agent` | **MediBot assistance** - Doctor discovery and appointment booking guidance |
 
 ---
 
@@ -275,15 +284,35 @@ Integrated with **Razorpay** for secure payment processing:
 
 ## 🤖 AI Features
 
-### MediBot Assistant
+### MediBot Assistant - Intelligent Healthcare Companion
 
 Powered by **Google Generative AI (Gemini)**:
 
-- Medical consultation queries
-- Symptom analysis
-- Treatment recommendations
-- Health tips and education
-- 24/7 availability
+#### Doctor Discovery & Recommendation
+- **Smart Doctor Matching**: Find doctors based on symptoms, health concerns, and medical history
+- **Personalized Suggestions**: Receive recommendations for appropriate specialists
+- **Availability Checking**: Check doctor availability in real-time
+- **Comparison Tool**: Compare multiple doctors based on qualifications and ratings
+
+#### Appointment Booking Assistance
+- **Guided Booking Process**: Step-by-step appointment booking with personalized prompts
+- **Schedule Optimization**: Get recommendations for optimal appointment times
+- **Reminder Management**: Automatic appointment reminders and rescheduling suggestions
+- **Follow-up Scheduling**: Intelligent recommendations for follow-up consultations
+
+#### Medical Consultation
+- **Symptom Analysis**: Describe symptoms and get preliminary analysis
+- **Health Information**: Access reliable medical information and health education
+- **Treatment Guidance**: Get information about treatment options and preventive care
+- **Medication Information**: Learn about medicines and their proper usage
+- **Health Tips**: Receive personalized health and wellness recommendations
+
+#### Key Capabilities
+- 24/7 availability for healthcare guidance
+- Natural language understanding for easy interaction
+- Contextual awareness of user health profile
+- Integration with appointment booking system
+- Privacy-focused with secure data handling
 
 ---
 
@@ -426,6 +455,8 @@ For support, questions, or feedback:
 - [ ] Multi-language support
 - [ ] Analytics dashboard for doctors
 - [ ] Appointment reminders via SMS/Email
+- [ ] Enhanced AI features with predictive health insights
+- [ ] Integration with wearable devices
 
 ---
 
@@ -436,4 +467,3 @@ For support, questions, or feedback:
 ---
 
 **Made with ❤️ for better healthcare**
-
