@@ -196,7 +196,7 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
 // Applying for booking an appointment
 const applyForBooking = asyncHandler(async (req, res) => {
   const patientId = req.user?._id;
-  const { slotNumber, date, username, reason } = req.body;
+  const { slotNumber, date, username, reason, meetingType } = req.body;
 
   if (!slotNumber) {
     throw new ApiError(400, "Slot number is required");
@@ -335,6 +335,7 @@ const applyForBooking = asyncHandler(async (req, res) => {
       reason: reason,
       consultationFee: fee,
       timeSlots: `${bookedSlot.startTime} - ${bookedSlot.endTime}`,
+      meetingType: meetingType || "IN_PERSON",
     });
 
     // Update Doctor Stats (New Appointment Count)

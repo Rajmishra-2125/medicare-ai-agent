@@ -312,6 +312,7 @@ function Appointments() {
         date: formData.appointmentDate,
         username: doctor.username,
         reason: formData.reason,
+        meetingType: formData.appointmentType === "video" ? "ONLINE" : "IN_PERSON",
       };
 
       const response =
@@ -747,12 +748,20 @@ function Appointments() {
                           </button>
                           <button
                             type="button"
-                            disabled
-                            className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center gap-2 transition-all opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/30"
-                            title="Video Consultation is coming soon"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                appointmentType: "video",
+                              }))
+                            }
+                            className={`p-4 border-2 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                              formData.appointmentType === "video"
+                                ? "border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                : "border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700 text-gray-700 dark:text-gray-300"
+                            }`}
                           >
-                            <Video className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                            <span className="font-semibold text-gray-400 dark:text-gray-500">Video Call (Coming Soon)</span>
+                            <Video className="w-5 h-5" />
+                            <span className="font-semibold">Video Call</span>
                           </button>
                         </div>
                       </div>
