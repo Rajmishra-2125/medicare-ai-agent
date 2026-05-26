@@ -164,6 +164,16 @@ const appointmentSchema = new Schema(
       ],
       advice: String,
       followUpDate: Date,
+      expiryDate: Date,
+      refillsRemaining: {
+        type: Number,
+        default: 0,
+      },
+      pharmacyDetails: {
+        name: String,
+        phone: String,
+        address: String,
+      },
     },
     doctorNotes: {
       type: String,

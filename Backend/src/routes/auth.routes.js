@@ -11,6 +11,12 @@ import {
   forgotPassword,
   resetPassword,
 } from "../controllers/auth.controllers.js";
+import {
+  setup2FA,
+  verify2FA,
+  disable2FA,
+  login2FA,
+} from "../controllers/twoFactor.controllers.js";
 
 const router = Router();
 
@@ -107,6 +113,7 @@ router.route("/register").post(
 
 // Login user
 router.route("/login").post(loginUser);
+router.route("/2fa/login").post(login2FA);
 
 // Google OAuth Login
 router.route("/google").post(googleAuthLogin);
@@ -124,6 +131,11 @@ router.route("/logout").post(verifyJWT, logoutUser);
 
 // Get new refresh token
 router.route("/refresh-tokens").get(verifyJWT, refreshAccessToken);
+
+// Two-Factor Authentication routes
+router.route("/2fa/setup").post(verifyJWT, setup2FA);
+router.route("/2fa/verify").post(verifyJWT, verify2FA);
+router.route("/2fa/disable").post(verifyJWT, disable2FA);
 
 // Password Reset
 router.route("/forgot-password").post(forgotPassword);

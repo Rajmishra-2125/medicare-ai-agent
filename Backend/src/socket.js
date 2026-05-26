@@ -83,6 +83,34 @@ io.on("connection", (socket) => {
     next();
   });
 
+  // --- WebRTC Tele-Consultation Signaling System ---
+  socket.on("webrtc:join-room", ({ roomId, userId }) => {
+    socket.join(roomId);
+    console.log(`📹 User ${userId} (${socket.id}) joined video room: ${roomId}`);
+    // Notify other users in the room
+    socket.to(roomId).emit("webrtc:user-joined", { userId, socketId: socket.id });
+  });
+
+  socket.on("webrtc:offer", ({ roomId, offer }) => {
+    console.log(`📤 Sending WebRTC offer to room: ${roomId}`);
+    socket.to(roomId).emit("webrtc:offer", { offer, senderId: socket.id });
+  });
+
+  socket.on("webrtc:answer", ({ roomId, answer }) => {
+    console.log(`📥 Sending WebRTC answer to room: ${roomId}`);
+    socket.to(roomId).emit("webrtc:answer", { answer, senderId: socket.id });
+  });
+
+  socket.on("webrtc:ice-candidate", ({ roomId, candidate }) => {
+    socket.to(roomId).emit("webrtc:ice-candidate", { candidate, senderId: socket.id });
+  });
+
+  socket.on("webrtc:leave", ({ roomId, userId }) => {
+    socket.leave(roomId);
+    console.log(`🛑 User ${userId} left video room: ${roomId}`);
+    socket.to(roomId).emit("webrtc:user-left", { userId, socketId: socket.id });
+  });
+
   socket.on("disconnect", () => {
     console.log("❌ A user disconnected", socket.id);
     if (userId) {

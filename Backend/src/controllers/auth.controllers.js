@@ -31,7 +31,7 @@ const getCookieOptions = (req) => {
 };
 
 // Generate Access and Refresh Token
-const generateAccessAndRefreshToken = async (userId) => {
+export const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
 
@@ -219,6 +219,24 @@ const loginUser = asyncHandler(async (req, res) => {
       403,
       "Please verify your email address before logging in. Check your inbox for the OTP."
     );
+  }
+
+  if (user.isTwoFactorEnabled) {
+    const twoFactorToken = jwt.sign(
+      { _id: user._id, is2FA: true },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "5m" }
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { twoFactorToken, is2FA: true, userId: user._id },
+          "Two-Factor Authentication code is required to complete login."
+        )
+      );
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(

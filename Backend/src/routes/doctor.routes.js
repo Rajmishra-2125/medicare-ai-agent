@@ -11,6 +11,8 @@ import {
 } from "../controllers/doctor.controllers.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
 import { cacheMiddleware } from "../middlewares/cache.middleware.js";
+import { searchDoctors } from "../controllers/doctorSearch.controllers.js";
+import { getDoctorAnalytics } from "../controllers/doctorAnalytics.controllers.js";
 
 const router = Router();
 
@@ -38,8 +40,14 @@ const router = Router();
 // Get explicit current doctor profile
 router.route("/my-profile").get(verifyJWT, getMyProfile);
 
+// Get doctor stats and earnings metrics
+router.route("/analytics").get(verifyJWT, getDoctorAnalytics);
+
 // Update doctor profile
 router.route("/updateInfo").patch(verifyJWT, updateDoctorProfile);
+
+// Advanced search route
+router.route("/search").get(searchDoctors);
 
 // Geting normal doctors list
 router

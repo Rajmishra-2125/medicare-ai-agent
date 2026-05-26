@@ -105,6 +105,16 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    // Two-Factor Authentication fields
+    twoFactorSecret: {
+      type: String,
+      select: false,
+    },
+    isTwoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
     // Authentication tokens
     refreshToken: {
       type: String,

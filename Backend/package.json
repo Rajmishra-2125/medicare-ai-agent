@@ -49,6 +49,8 @@
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
+    "otplib": "^13.4.0",
+    "qrcode": "^1.5.4",
     "redis": "^5.12.1",
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.3.0",
