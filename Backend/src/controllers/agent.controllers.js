@@ -12,6 +12,26 @@ import { generateAppointmentId } from "../utils/idGenerators.js";
 // Ensure Redis is connected
 connectRedis();
 
+// Helper to parse "HH:MM AM/PM" to minutes from midnight for chronological sorting
+const parseTimeToMinutes = (timeStr) => {
+  try {
+    if (!timeStr) return 0;
+    const parts = timeStr.trim().split(/\s+/);
+    if (parts.length < 2) return 0;
+    const time = parts[0];
+    const modifier = parts[1].toUpperCase();
+    let [hours, minutes] = time.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return 0;
+
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  } catch (error) {
+    return 0;
+  }
+};
+
 // ============================================================================
 // 1. Tool Implementations (The logic the AI can trigger)
 // ============================================================================
@@ -113,9 +133,21 @@ const getAvailableSlots = async ({ doctorName, dateStr }) => {
       query.date = { $gte: localUTC };
     }
 
-    const slots = await Slot.find(query)
-      .sort({ date: 1, startTime: 1 })
-      .limit(10);
+    // Fetch matching slots (up to 100 to keep it efficient)
+    const rawSlots = await Slot.find(query).limit(100).lean();
+
+    // Sort slots chronologically in JS to prevent alphabetical sort bugs
+    const slots = [...rawSlots]
+      .sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+
+        const timeA = parseTimeToMinutes(a.startTime);
+        const timeB = parseTimeToMinutes(b.startTime);
+        return timeA - timeB;
+      })
+      .slice(0, 10);
 
     if (slots.length === 0) {
       return {
@@ -463,19 +495,17 @@ FALLBACKS:
     );
 
     // Clean response to prevent Circular JSON payload serialization errors
-    res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          {
-            message:
-              aiMessageText ||
-              "I'm having a hard time understanding that context.",
-          },
-          "Agent replied correctly."
-        )
-      );
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          message:
+            aiMessageText ||
+            "I'm having a hard time understanding that context.",
+        },
+        "Agent replied correctly."
+      )
+    );
   } catch (error) {
     console.error("LLM Engine Fault:", error.message);
     return res.status(200).json(

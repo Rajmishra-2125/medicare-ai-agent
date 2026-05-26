@@ -45,7 +45,9 @@ const setupCronJobs = () => {
       });
 
       if (expiredAppointments.length > 0) {
-        console.log(`🧹 Found ${expiredAppointments.length} abandoned unpaid appointments. Cleaning up...`);
+        console.log(
+          `🧹 Found ${expiredAppointments.length} abandoned unpaid appointments. Cleaning up...`
+        );
 
         for (const appointment of expiredAppointments) {
           // Free the slot
@@ -56,7 +58,8 @@ const setupCronJobs = () => {
 
           // Cancel the appointment
           appointment.status = "CANCELLED";
-          appointment.cancellationReason = "Auto-cancelled due to payment timeout (15 mins)";
+          appointment.cancellationReason =
+            "Auto-cancelled due to payment timeout (15 mins)";
           appointment.cancelledAt = new Date();
           await appointment.save();
         }
@@ -65,6 +68,43 @@ const setupCronJobs = () => {
       }
     } catch (error) {
       console.error("❌ Cleanup Cron Job Failed:", error);
+    }
+  });
+
+  // Self-ping to keep Render server awake (Runs every 10 minutes)
+  cron.schedule("*/10 * * * *", async () => {
+    const url = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL;
+    if (!url) {
+      console.log(
+        "ℹ️  No external SERVER_URL or RENDER_EXTERNAL_URL configured — skipping self-ping."
+      );
+      return;
+    }
+
+    try {
+      console.log(`📡 Self-pinging healthcheck: ${url}/api/v1/healthcheck`);
+      if (typeof fetch === "function") {
+        const response = await fetch(`${url}/api/v1/healthcheck`);
+        console.log(
+          `✅ Self-ping successful (fetch) — Status: ${response.status}`
+        );
+      } else {
+        const https = await import("https");
+        const http = await import("http");
+        const client = url.startsWith("https") ? https : http;
+
+        client
+          .get(`${url}/api/v1/healthcheck`, (res) => {
+            console.log(
+              `✅ Self-ping successful (http/s) — Status: ${res.statusCode}`
+            );
+          })
+          .on("error", (err) => {
+            console.error("❌ Self-ping request failed:", err.message);
+          });
+      }
+    } catch (error) {
+      console.error("❌ Self-ping failed:", error.message);
     }
   });
 
