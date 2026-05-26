@@ -118,7 +118,7 @@ const hideConnectingOverlay = () => {
 
 api.interceptors.request.use(
   (config) => {
-    if (isFirstRequest) {
+    if (isFirstRequest && !connectionTimer) {
       connectionTimer = setTimeout(() => {
         showConnectingOverlay();
       }, 3000);
@@ -139,7 +139,10 @@ api.interceptors.response.use(
   (response) => {
     if (isFirstRequest) {
       isFirstRequest = false;
-      clearTimeout(connectionTimer);
+      if (connectionTimer) {
+        clearTimeout(connectionTimer);
+        connectionTimer = null;
+      }
       hideConnectingOverlay();
     }
     return response;
@@ -147,7 +150,10 @@ api.interceptors.response.use(
   async (error) => {
     if (isFirstRequest) {
       isFirstRequest = false;
-      clearTimeout(connectionTimer);
+      if (connectionTimer) {
+        clearTimeout(connectionTimer);
+        connectionTimer = null;
+      }
       hideConnectingOverlay();
     }
     
