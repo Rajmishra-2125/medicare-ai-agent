@@ -1,6 +1,14 @@
 // Load .env variables synchronously before any other imports evaluate
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import { validateEnvironment } from "./utils/envValidator.js";
+
+// Initialize Sentry for Backend Error Monitoring
+Sentry.init({
+  dsn: process.env.SENTRY_DSN || "",
+  tracesSampleRate: 1.0,
+});
+
 validateEnvironment();
 
 import "./app.js";

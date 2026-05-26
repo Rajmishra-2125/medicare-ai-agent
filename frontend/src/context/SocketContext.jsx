@@ -14,6 +14,8 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const userId = user?._id || user?.id;
     if (userId) {
+      const token = localStorage.getItem("accessToken");
+      
       // Connect to the backend
       const socketInstance = io(
         import.meta.env.VITE_API_BASE_URL ||
@@ -22,6 +24,9 @@ export const SocketProvider = ({ children }) => {
           query: {
             userId: userId,
             userName: user.name || user.fullname || "there",
+          },
+          auth: {
+            token: token,
           },
         }
       );

@@ -4,6 +4,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 const uploadRecord = asyncHandler(async (req, res) => {
   // Use 'userIdentifier' which could be an ID or username
@@ -69,6 +70,16 @@ const uploadRecord = asyncHandler(async (req, res) => {
     .populate("patientId", "fullname email")
     .populate("uploadedBy", "fullname role");
 
+  // HIPAA Compliance Audit Log
+  await logAudit(req, {
+    action: "WRITE_PHI",
+    resourceType: "MEDICAL_RECORD",
+    resourceId: record._id.toString(),
+    patientId: patient._id,
+    status: "SUCCESS",
+    details: `Medical record '${title}' uploaded by user ${uploaderId} for patient ${patient._id}.`
+  });
+
   return res
     .status(201)
     .json(
@@ -96,6 +107,16 @@ const getRecords = asyncHandler(async (req, res) => {
     .populate("patientId", "fullname email")
     .populate("uploadedBy", "fullname role")
     .sort({ createdAt: -1 });
+
+  // HIPAA Compliance Audit Log
+  const targetPatientId = query.patientId || null;
+  await logAudit(req, {
+    action: "READ_PHI",
+    resourceType: "MEDICAL_RECORD",
+    patientId: targetPatientId,
+    status: "SUCCESS",
+    details: `Fetched ${records.length} medical records.`
+  });
 
   return res
     .status(200)

@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import * as Sentry from "@sentry/node";
 import logger from "./utils/logger.js";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
@@ -124,6 +125,9 @@ app.use("/api/v1/medical-records", medicalRecordsRouter);
 app.use("/api/v1/agent", agentRouter);
 app.use("/api/v1/payments", sensitiveLimiter, paymentRouter);
 app.use("/api/v1/notifications", notificationRouter);
+
+// Sentry error handler (Must be placed before custom error handlers)
+Sentry.setupExpressErrorHandler(app);
 
 // Error Middleware (Must be last)
 import { errorHandler } from "./middlewares/error.middleware.js";
