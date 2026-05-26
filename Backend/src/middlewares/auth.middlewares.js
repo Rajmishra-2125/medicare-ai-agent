@@ -45,11 +45,12 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
         user.refreshToken = refreshTokenObj;
         await user.save({ validateBeforeSave: false });
 
-        // Set secure HttpOnly cookies
+        // Set secure HttpOnly cookies (localhost-aware)
+        const isLocalhost = req.get("host")?.includes("localhost") || req.get("host")?.includes("127.0.0.1");
         const options = {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          secure: process.env.NODE_ENV === "production" && !isLocalhost,
+          sameSite: process.env.NODE_ENV === "production" && !isLocalhost ? "none" : "lax",
           maxAge: 7 * 24 * 60 * 60 * 1000,
         };
 

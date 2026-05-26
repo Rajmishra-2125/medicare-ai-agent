@@ -19,6 +19,17 @@ import { OTP } from "../models/otp.models.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Dynamic cookie options builder resolving localhost HTTP vs production HTTPS environments
+const getCookieOptions = (req) => {
+  const isLocalhost = req.get("host")?.includes("localhost") || req.get("host")?.includes("127.0.0.1");
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" && !isLocalhost,
+    sameSite: process.env.NODE_ENV === "production" && !isLocalhost ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+};
+
 // Generate Access and Refresh Token
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -218,12 +229,7 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  };
+  const options = getCookieOptions(req);
 
   return res
     .status(200)
@@ -265,11 +271,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Refresh token is invalid or used");
     }
 
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    };
+    const options = getCookieOptions(req);
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
       user._id
@@ -369,11 +371,7 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
       "-password -refreshToken"
     );
 
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    };
+    const options = getCookieOptions(req);
 
     return res
       .status(200)
@@ -400,11 +398,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     },
   });
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  };
+  const options = getCookieOptions(req);
 
   return res
     .status(200)
@@ -500,11 +494,7 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  };
+  const options = getCookieOptions(req);
 
   return res
     .status(200)
