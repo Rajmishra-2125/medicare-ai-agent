@@ -160,12 +160,12 @@ export const verifyPayment = asyncHandler(async (req, res) => {
         const patientUser = appointment.patientId;
         const doctorUser = doctor.doctorId; // deep populated User model
 
-        // Dispatch Patient Email
+        // Dispatch Patient Email in the background
         if (patientUser) {
           const patientNameEscaped = escapeHTML(patientUser.fullname);
           const doctorNameEscaped = escapeHTML(doctor.doctorDetails?.fullname || doctor.doctor);
           
-          await sendEmail({
+          sendEmail({
             email: patientUser.email,
             subject: "Payment Received & Appointment Confirmed - MediCare",
             message: `
@@ -182,16 +182,16 @@ export const verifyPayment = asyncHandler(async (req, res) => {
                           </div>
                           <p style="font-size: 14px; color: #64748b; text-align: center;">Thank you for choosing MediCare!</p>
                         </div>`,
-          });
+          }).catch(err => console.error("Failed to send patient confirmation email asynchronously:", err));
         }
 
-        // Dispatch Doctor Email
+        // Dispatch Doctor Email in the background
         if (doctorUser) {
           const doctorNameEscaped = escapeHTML(doctor.doctorDetails?.fullname || doctor.doctor);
           const patientNameEscaped = escapeHTML(patientUser?.fullname || "Patient");
           const reasonEscaped = escapeHTML(appointment.reason);
 
-          await sendEmail({
+          sendEmail({
             email: doctorUser.email,
             subject: "Action Required: New Paid Patient Booking - MediCare",
             message: `
@@ -206,7 +206,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
                             <p style="margin: 5px 0; color: #166534;"><strong>Reason for Visit:</strong> ${reasonEscaped}</p>
                           </div>
                         </div>`,
-          });
+          }).catch(err => console.error("Failed to send doctor notification email asynchronously:", err));
         }
       } catch (emailError) {
         console.error("Email Dispatch Error After Payment:", emailError);
