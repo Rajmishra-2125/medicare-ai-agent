@@ -17,6 +17,7 @@ import Register from "./components/Register/Register.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx"; // Import ProtectedRoute
 import NotFound from "./components/NotFound/NotFound.jsx";
 import PageLoader from "./components/skeletons/PageLoader.jsx";
+import ErrorScreen from "./components/ErrorScreen.jsx";
 
 // Lazy Loaded Auxiliary Public Pages
 const About = lazy(() => import("./components/About/About.jsx"));
@@ -114,7 +115,9 @@ createRoot(document.getElementById("root")).render(
         <SocketProvider>
           <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <Suspense fallback={<PageLoader />}>
-              <RouterProvider router={router} />
+              <Sentry.ErrorBoundary fallback={<ErrorScreen />}>
+                <RouterProvider router={router} />
+              </Sentry.ErrorBoundary>
             </Suspense>
             <Toaster position="top-center" reverseOrder={false} />
           </GoogleOAuthProvider>
