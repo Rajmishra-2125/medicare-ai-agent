@@ -4,9 +4,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchDoctorAppointments, updateDoctorAppointmentStatus } from '../../../features/appointments/doctorAppointmentSlice';
 import toast from 'react-hot-toast';
 import PrescriptionModal from '../components/Prescriptions/PrescriptionModal';
+import { useNavigate } from 'react-router-dom';
 
 const DoctorAppointments = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { appointments, isLoading } = useSelector(state => state.doctorAppointments);
   const [refreshing, setRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,6 +103,18 @@ const DoctorAppointments = () => {
                     }`}>
                       {apt.status}
                     </span>
+
+                    {/* Join WebRTC Video Consultation launcher */}
+                    {apt.status === 'CONFIRMED' && apt.meetingType === 'ONLINE' && (
+                      <button 
+                        onClick={() => navigate(`/consultation/${apt._id}`)}
+                        className="p-2 text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition-all animate-pulse cursor-pointer"
+                        title="Join Video Consultation"
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <select 
                       className="text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 outline-none cursor-pointer"
                       onChange={(e) => handleStatusChange(e, apt)}
