@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { handleAgentChat } from "../controllers/agent.controllers.js";
+import { handleAgentChat, getChatHistory, clearChatHistory } from "../controllers/agent.controllers.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
 
 const router = Router();
@@ -21,5 +21,10 @@ const agentLimiter = rateLimit({
 
 // Secure the agent route so only authenticated patients can use it
 router.route("/chat").post(verifyJWT, agentLimiter, handleAgentChat);
+
+// History management routes
+router.route("/history")
+  .get(verifyJWT, getChatHistory)
+  .delete(verifyJWT, clearChatHistory);
 
 export default router;

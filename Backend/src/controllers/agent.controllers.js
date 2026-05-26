@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Doctor } from "../models/doctor.models.js";
 import { Slot } from "../models/slots.models.js";
 import { Appointment } from "../models/appointment.models.js";
+import { ChatSession } from "../models/chatSession.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -28,6 +29,7 @@ const parseTimeToMinutes = (timeStr) => {
 
     return hours * 60 + minutes;
   } catch (error) {
+    console.error("Time Parse Error inside parseTimeToMinutes:", error);
     return 0;
   }
 };
@@ -414,7 +416,7 @@ const systemTools = [
 // ============================================================================
 
 export const handleAgentChat = asyncHandler(async (req, res) => {
-  const { message, chatHistory = [] } = req.body;
+  const { message } = req.body;
   const patientId = req.user._id;
 
   if (geminiService.keys.length === 0) {
@@ -422,6 +424,12 @@ export const handleAgentChat = asyncHandler(async (req, res) => {
       500,
       "GEMINI_API_KEYS are missing from the environment variables."
     );
+  }
+
+  // Load chat session from MongoDB
+  let chatSessionObj = await ChatSession.findOne({ patientId });
+  if (!chatSessionObj) {
+    chatSessionObj = await ChatSession.create({ patientId, history: [] });
   }
 
   const currentDate = new Date();
@@ -433,39 +441,22 @@ export const handleAgentChat = asyncHandler(async (req, res) => {
   });
   const isoDate = currentDate.toISOString().split("T")[0];
 
-  // Filter and sanitize chat history for Gemini strict requirements:
-  let sanitizedHistory = [...chatHistory];
-
-  // Remove the current message from history if it was just pushed to Redux
-  if (
-    sanitizedHistory.length > 0 &&
-    sanitizedHistory[sanitizedHistory.length - 1].text === message
-  ) {
-    sanitizedHistory.pop();
-  }
-
-  // Remove any leading model messages (like the greeting)
-  while (
-    sanitizedHistory.length > 0 &&
-    sanitizedHistory[0].role === "assistant"
-  ) {
-    sanitizedHistory.shift();
-  }
-
-  // Convert the frontend agnostic format {role: 'user/assistant', text: '...'} to Gemini format
-  const formattedHistory = sanitizedHistory.map((msg) => ({
-    role: msg.role === "assistant" ? "model" : "user",
-    parts: [{ text: msg.text }],
-  }));
+  // Set headers for SSE streaming
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
 
   try {
-    const aiMessageText = await geminiService.executeWithRotation(
+    await geminiService.executeWithRotation(
       async (genAI) => {
-        // Define the base model prompt configuring its persona
+        // Define the base model prompt configuring its persona and safety disclaimers
         const model = genAI.getGenerativeModel({
           model: geminiService.modelName,
           systemInstruction: `You are MediBot, an AI appointment assistant for our hospital portal.
 CRITICAL CONTEXT: Today is ${readableDate} (YYYY-MM-DD: ${isoDate}). When a user requests slots for 'today', 'tomorrow', or any relative day, you MUST mathematically calculate the correct YYYY-MM-DD date using this real-time calendar and explicitly pass it as the "dateStr" parameter to get_available_slots!
+
+DISCLAIMER: You must always explicitly state that you are an AI assistant, not a doctor. Advise users to contact local emergency services immediately for life-threatening medical emergencies.
 
 PERSONA: Compassionate, concise, and professional. Never mention internal tool names or IDs to patients.
 
@@ -488,30 +479,42 @@ FALLBACKS:
           tools: systemTools,
         });
 
-        // Start chat session with history
+        // Start chat session with persistent history
         const chat = model.startChat({
-          history: formattedHistory,
+          history: chatSessionObj.history || [],
         });
 
-        // Send the primary message
-        let result = await chat.sendMessage(message);
+        let currentInput = message;
+        let round = 0;
+        const maxRounds = 5;
 
-        // Check if the LLM desires to trigger a tool (potentially multiple times)
-        let MAX_RETRIES = 5;
-        let attempts = 0;
-        let finalMessageText = "";
+        while (round < maxRounds) {
+          const responseStream = await chat.sendMessageStream(currentInput);
+          let isToolCall = false;
 
-        while (attempts < MAX_RETRIES) {
-          const functionCalls =
-            result.response.functionCalls &&
-            typeof result.response.functionCalls === "function"
-              ? result.response.functionCalls()
-              : result.response.functionCalls; // Fallback in case of SDK version differences
+          for await (const chunk of responseStream.stream) {
+            if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+              isToolCall = true;
+            }
 
-          if (functionCalls && functionCalls.length > 0) {
-            // Collect responses for ALL simultaneously triggered tools
+            try {
+              const text = chunk.text();
+              if (text && text.trim() !== "") {
+                // Write text chunk directly to client in SSE format
+                res.write(`data: ${JSON.stringify({ text })}\n\n`);
+              }
+            } catch (e) {
+              // Skip if no text chunk
+            }
+          }
+
+          const finalResponse = await responseStream.response;
+          const calls = finalResponse.functionCalls();
+
+          if (calls && calls.length > 0) {
+            // Resolve functions
             const functionResponses = await Promise.all(
-              functionCalls.map(async (call) => {
+              calls.map(async (call) => {
                 let functionData = null;
 
                 if (call.name === "search_doctors") {
@@ -533,43 +536,50 @@ FALLBACKS:
               })
             );
 
-            // Return ALL intercepted tool responses back to the LLM immediately
-            result = await chat.sendMessage(functionResponses);
-            attempts++;
+            currentInput = functionResponses;
+            round++;
           } else {
-            // No more tool calls, we can safely extract text!
-            finalMessageText = result.response.text();
+            // Final response text completed, break function calling round loop
             break;
           }
         }
 
-        return finalMessageText;
+        // Save updated chat history securely back to database
+        chatSessionObj.history = await chat.getHistory();
+        await chatSessionObj.save();
       }
     );
-
-    // Clean response to prevent Circular JSON payload serialization errors
-    res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          message:
-            aiMessageText ||
-            "I'm having a hard time understanding that context.",
-        },
-        "Agent replied correctly."
-      )
-    );
+    res.write("data: [DONE]\n\n");
+    res.end();
   } catch (error) {
     console.error("LLM Engine Fault:", error.message);
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          message:
-            "We are facing high traffic. Please try again after some time! 🙏",
-        },
-        "Agent replied gracefully to error."
-      )
-    );
+    res.write(`data: ${JSON.stringify({ error: "High traffic. Please try again later." })}\n\n`);
+    res.end();
   }
+});
+
+// Load patient chat history
+export const getChatHistory = asyncHandler(async (req, res) => {
+  const patientId = req.user._id;
+  const session = await ChatSession.findOne({ patientId });
+
+  let uiHistory = [];
+  if (session && session.history) {
+    uiHistory = session.history
+      .filter((msg) => msg.role === "user" || msg.role === "model")
+      .map((msg) => ({
+        role: msg.role === "model" ? "assistant" : "user",
+        text: msg.parts[0]?.text || "",
+      }))
+      .filter((msg) => msg.text && msg.text.trim() !== "");
+  }
+
+  return res.status(200).json(new ApiResponse(200, uiHistory, "Chat history loaded."));
+});
+
+// Clear patient chat history
+export const clearChatHistory = asyncHandler(async (req, res) => {
+  const patientId = req.user._id;
+  await ChatSession.deleteOne({ patientId });
+  return res.status(200).json(new ApiResponse(200, {}, "Chat history cleared."));
 });

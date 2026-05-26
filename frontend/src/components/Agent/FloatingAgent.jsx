@@ -1,7 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { MessageSquare, X, Send, Bot, User, Loader2 } from "lucide-react";
-import { toggleAgentChat, sendChatMessage, addUserMessage } from "../../features/agent/agentSlice";
+import { X, Send, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { 
+  toggleAgentChat, 
+  addUserMessage, 
+  fetchChatHistory, 
+  clearPersistedChat, 
+  addAssistantMessagePlaceholder, 
+  updateLastAssistantMessage, 
+  setLoading 
+} from "../../features/agent/agentSlice";
 import ReactMarkdown from "react-markdown";
 
 const FloatingAgent = () => {
@@ -14,21 +22,89 @@ const FloatingAgent = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Fetch persistent conversation history when widget is opened
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchChatHistory());
+    }
+  }, [isOpen, dispatch]);
+
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
     }
   }, [chatHistory, isOpen]);
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    // Immediately push user message to UI
-    dispatch(addUserMessage(input));
-    // Trigger async LLM tool engine lookup
-    dispatch(sendChatMessage(input));
+    const userMsg = input.trim();
     setInput("");
+
+    // 1. Instantly append User's message to UI
+    dispatch(addUserMessage(userMsg));
+    dispatch(setLoading(true));
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://medicare-healthcare-app.onrender.com/api/v1';
+      
+      const response = await fetch(`${apiUrl}/agent/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: userMsg }),
+        credentials: "include", // Automatically send HttpOnly accessToken cookie
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to connect to assistant.");
+      }
+
+      // 2. Append placeholder Assistant message bubble
+      dispatch(addAssistantMessagePlaceholder());
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let accumulatedText = "";
+
+      // 3. Stream generated text chunks dynamically
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const dataStr = line.slice(6).trim();
+              if (dataStr === "[DONE]") {
+                break;
+              }
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.text) {
+                  accumulatedText += parsed.text;
+                  dispatch(updateLastAssistantMessage(accumulatedText));
+                } else if (parsed.error) {
+                  dispatch(updateLastAssistantMessage(`⚠️ System Error: ${parsed.error}`));
+                }
+              } catch (err) {
+                // Ignore chunk parsing anomalies
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("SSE stream error", error);
+      dispatch(addAssistantMessagePlaceholder());
+      dispatch(updateLastAssistantMessage(`⚠️ System Error: ${error.message}. Please check connection.`));
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 
   if (!isOpen) {
@@ -57,12 +133,25 @@ const FloatingAgent = () => {
             </p>
           </div>
         </div>
-        <button 
-          onClick={() => dispatch(toggleAgentChat())}
-          className="p-2 hover:bg-white/20 rounded-full transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => {
+              if (window.confirm("Are you sure you want to clear your chat history?")) {
+                dispatch(clearPersistedChat());
+              }
+            }}
+            title="Clear Chat History"
+            className="p-2 hover:bg-white/20 rounded-full transition-colors mr-1 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4 text-white" />
+          </button>
+          <button 
+            onClick={() => dispatch(toggleAgentChat())}
+            className="p-2 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Messages Window */}
@@ -94,7 +183,7 @@ const FloatingAgent = () => {
           </div>
         ))}
 
-        {isLoading && (
+        {isLoading && chatHistory[chatHistory.length - 1]?.role !== 'assistant' && (
           <div className="flex items-end gap-2">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-indigo-600" />
@@ -125,9 +214,9 @@ const FloatingAgent = () => {
           <button 
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            className="absolute right-2 p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer"
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isLoading && chatHistory[chatHistory.length - 1]?.role !== 'assistant' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </form>
         <p className="text-[10px] text-center text-gray-400 mt-2">MediBot may make mistakes. Always verify appointments.</p>

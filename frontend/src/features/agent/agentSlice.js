@@ -1,15 +1,31 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import agentService from "../../services/agentService";
+import api from "../../services/api";
 
-export const sendChatMessage = createAsyncThunk(
-  "agent/sendMessage",
-  async (messageData, thunkAPI) => {
+// Fetch persisted chat history from backend ChatSession model
+export const fetchChatHistory = createAsyncThunk(
+  "agent/fetchHistory",
+  async (_, thunkAPI) => {
     try {
-      const state = thunkAPI.getState();
-      const history = state.agent.chatHistory;
-      
-      const response = await agentService.chatWithAgent(messageData, history);
-      return response.data.message;
+      const response = await api.get("/agent/history");
+      return response.data.data; // Array of UI formatted messages
+    } catch (error) {
+      const message =
+        (error.response && error.response.data && error.response.data.message) ||
+        error.message ||
+        error.toString();
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
+// Clear persistent chat history on backend and reset UI state
+export const clearPersistedChat = createAsyncThunk(
+  "agent/clearPersistedChat",
+  async (_, thunkAPI) => {
+    try {
+      await api.delete("/agent/history");
+      thunkAPI.dispatch(clearHistory());
+      return true;
     } catch (error) {
       const message =
         (error.response && error.response.data && error.response.data.message) ||
@@ -40,27 +56,48 @@ const agentSlice = createSlice({
     addUserMessage: (state, action) => {
       state.chatHistory.push({ role: "user", text: action.payload });
     },
+    addAssistantMessagePlaceholder: (state) => {
+      state.chatHistory.push({ role: "assistant", text: "" });
+    },
+    updateLastAssistantMessage: (state, action) => {
+      const last = state.chatHistory[state.chatHistory.length - 1];
+      if (last && last.role === "assistant") {
+        last.text = action.payload;
+      }
+    },
+    setLoading: (state, action) => {
+      state.isLoading = action.payload;
+    },
     clearHistory: (state) => {
       state.chatHistory = [initialState.chatHistory[0]];
     }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(sendChatMessage.pending, (state) => {
+      .addCase(fetchChatHistory.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(sendChatMessage.fulfilled, (state, action) => {
+      .addCase(fetchChatHistory.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.chatHistory.push({ role: "assistant", text: action.payload });
+        if (action.payload && action.payload.length > 0) {
+          state.chatHistory = action.payload;
+        }
       })
-      .addCase(sendChatMessage.rejected, (state, action) => {
+      .addCase(fetchChatHistory.rejected, (state, action) => {
         state.isLoading = false;
         state.isError = true;
         state.message = action.payload;
-        state.chatHistory.push({ role: "assistant", text: `⚠️ System Error: ${action.payload}. Please verify backend terminal logs.` });
       });
   }
 });
 
-export const { toggleAgentChat, addUserMessage, clearHistory } = agentSlice.actions;
+export const {
+  toggleAgentChat,
+  addUserMessage,
+  addAssistantMessagePlaceholder,
+  updateLastAssistantMessage,
+  setLoading,
+  clearHistory
+} = agentSlice.actions;
+
 export default agentSlice.reducer;
