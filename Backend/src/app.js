@@ -66,6 +66,14 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+const sensitiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 requests per windowMs for sensitive actions
+  message: "Too many requests to this endpoint, please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Common middlewares
 app.use(express.json({ limit: "16kb" }));
 app.use(
@@ -106,7 +114,7 @@ app.use(
 );
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/admin", adminRouter);
-app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/auth", sensitiveLimiter, authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/doctors", doctorRouter);
 app.use("/api/v1/slots", slotsRouter); // Mounted slots router
@@ -114,7 +122,7 @@ app.use("/api/v1/appointments", appointmentRouter);
 app.use("/api/v1/reviews", reviewRouter);
 app.use("/api/v1/medical-records", medicalRecordsRouter);
 app.use("/api/v1/agent", agentRouter);
-app.use("/api/v1/payments", paymentRouter);
+app.use("/api/v1/payments", sensitiveLimiter, paymentRouter);
 app.use("/api/v1/notifications", notificationRouter);
 
 // Error Middleware (Must be last)

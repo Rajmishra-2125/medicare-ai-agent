@@ -27,3 +27,13 @@ connectDB()
   .catch((err) => {
     console.log("❌MongoDB connection error", err);
   });
+
+// Global promise rejection and uncaught exception handlers
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ UNHANDLED REJECTION at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("❌ UNCAUGHT EXCEPTION thrown:", error);
+  process.exit(1);
+});

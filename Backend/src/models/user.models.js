@@ -65,6 +65,7 @@ const userSchema = new Schema(
       },
       trim: true,
       match: [/^\+?[1-9]\d{1,14}$/, "Please provide a valid phone number"],
+      index: true,
     },
     dateOfBirth: {
       type: Date,

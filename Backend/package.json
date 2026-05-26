@@ -17,8 +17,10 @@
   "author": "Raj Mishra",
   "license": "ISC",
   "devDependencies": {
+    "jest": "^30.4.2",
     "nodemon": "^3.1.11",
-    "prettier": "^3.8.0"
+    "prettier": "^3.8.0",
+    "supertest": "^7.2.2"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -49,6 +51,7 @@
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "zod": "^4.4.3"
   }
 }
