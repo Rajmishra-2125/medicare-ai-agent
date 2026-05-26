@@ -1,5 +1,8 @@
 // Load .env variables synchronously before any other imports evaluate
 import "dotenv/config";
+import { validateEnvironment } from "./utils/envValidator.js";
+validateEnvironment();
+
 import "./app.js";
 import { server } from "./socket.js";
 import connectDB from "./db/index.js";
