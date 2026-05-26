@@ -52,7 +52,7 @@ function App() {
     if (user.role === "ADMIN" && !location.pathname.startsWith("/admin")) {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    if (user.role === "DOCTOR" && !location.pathname.startsWith("/doctor")) {
+    if (user.role === "DOCTOR" && !location.pathname.startsWith("/doctor") && !location.pathname.startsWith("/consultation")) {
       return <Navigate to="/doctor/dashboard" replace />;
     }
 
