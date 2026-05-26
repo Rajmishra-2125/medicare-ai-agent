@@ -11,6 +11,8 @@ const initialState = {
   isError: false,
   isSuccess: false,
   message: "",
+  isTwoFactorRequired: false,
+  twoFactorToken: null,
 };
 
 // Register user
@@ -61,6 +63,24 @@ export const login = createAsyncThunk("auth/login", async (user, thunkAPI) => {
     return thunkAPI.rejectWithValue(message);
   }
 });
+
+// Secondary 2FA Login
+export const login2FA = createAsyncThunk(
+  "auth/login2FA",
+  async (twoFactorData, thunkAPI) => {
+    try {
+      return await authService.login2FA(twoFactorData);
+    } catch (error) {
+      const message =
+        (error.response &&
+          error.response.data &&
+          error.response.data.message) ||
+        error.message ||
+        error.toString();
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
 
 // Verify OTP
 export const verifyOTP = createAsyncThunk(
@@ -217,6 +237,16 @@ export const authSlice = createSlice({
       state.isError = false;
       state.message = "";
     },
+    update2FAStatus: (state, action) => {
+      if (state.user) {
+        state.user.isTwoFactorEnabled = action.payload;
+        localStorage.setItem("user", JSON.stringify(state.user));
+      }
+    },
+    reset2FARequired: (state) => {
+      state.isTwoFactorRequired = false;
+      state.twoFactorToken = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -257,9 +287,17 @@ export const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isSuccess = true;
-        state.user = action.payload;
-        state.isAuthenticated = true;
+        if (action.payload && action.payload.is2FA) {
+          state.isTwoFactorRequired = true;
+          state.twoFactorToken = action.payload.twoFactorToken;
+          state.isSuccess = true;
+        } else {
+          state.isSuccess = true;
+          state.user = action.payload;
+          state.isAuthenticated = true;
+          state.isTwoFactorRequired = false;
+          state.twoFactorToken = null;
+        }
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -267,6 +305,22 @@ export const authSlice = createSlice({
         state.message = action.payload;
         state.user = null;
         state.isAuthenticated = false;
+      })
+      .addCase(login2FA.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(login2FA.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.user = action.payload;
+        state.isAuthenticated = true;
+        state.isTwoFactorRequired = false;
+        state.twoFactorToken = null;
+      })
+      .addCase(login2FA.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
       })
       .addCase(verifyOTP.pending, (state) => {
         state.isLoading = true;
@@ -380,5 +434,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { reset } = authSlice.actions;
+export const { reset, update2FAStatus, reset2FARequired } = authSlice.actions;
 export default authSlice.reducer;

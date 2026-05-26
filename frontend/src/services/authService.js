@@ -38,13 +38,55 @@ const googleLogin = async (tokenData) => {
 const login = async (userData) => {
   const response = await api.post("/auth/login", userData);
 
-  if (response.data) {
-    localStorage.setItem("user", JSON.stringify(response.data.data.user));
-    if (response.data.data.accessToken) {
-      localStorage.setItem("accessToken", response.data.data.accessToken);
+  if (response.data && response.data.data) {
+    const { is2FA, user, accessToken, refreshToken } = response.data.data;
+    if (is2FA) {
+      return response.data.data; // Return raw 2FA payload (is2FA, twoFactorToken, userId)
     }
-    if (response.data.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.data.refreshToken);
+
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+    }
+  }
+
+  return response.data.data.user;
+};
+
+// 2FA Methods
+const setup2FA = async () => {
+  const response = await api.post("/auth/2fa/setup");
+  return response.data.data;
+};
+
+const verify2FA = async (code) => {
+  const response = await api.post("/auth/2fa/verify", { code });
+  return response.data.data;
+};
+
+const disable2FA = async (code) => {
+  const response = await api.post("/auth/2fa/disable", { code });
+  return response.data.data;
+};
+
+const login2FA = async (twoFactorData) => {
+  const response = await api.post("/auth/2fa/login", twoFactorData);
+
+  if (response.data && response.data.data) {
+    const { user, accessToken, refreshToken } = response.data.data;
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
     }
   }
 
@@ -173,6 +215,10 @@ const authService = {
   deleteAccount,
   recoverAccount,
   getCurrentUser,
+  setup2FA,
+  verify2FA,
+  disable2FA,
+  login2FA,
 };
 
 export default authService;

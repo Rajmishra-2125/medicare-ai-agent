@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { login2FA, reset2FARequired } from "../../features/auth/AuthSlice";
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -21,13 +22,14 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
 
   const { email, password } = formData;
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { user, isLoading, isError, isSuccess, message } = useSelector(
+  const { user, isLoading, isError, isSuccess, message, isTwoFactorRequired, twoFactorToken } = useSelector(
     (state) => state.auth,
   );
 
@@ -77,6 +79,15 @@ const Login = () => {
     dispatch(login(userData));
   };
 
+  const on2FASubmit = (e) => {
+    e.preventDefault();
+    if (totpCode.length !== 6 || isNaN(Number(totpCode))) {
+      toast.error("Please enter a valid 6-digit verification code.");
+      return;
+    }
+    dispatch(login2FA({ code: totpCode, twoFactorToken }));
+  };
+
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       dispatch(googleLogin({ googleToken: tokenResponse.access_token }));
@@ -86,6 +97,179 @@ const Login = () => {
       console.log("Login Failed:", error);
     },
   });
+
+  const renderFormContent = () => {
+    if (isTwoFactorRequired) {
+      return (
+        <form className="space-y-6" onSubmit={on2FASubmit}>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 justify-center">
+              <Lock className="w-5 h-5 text-indigo-500" />
+              Two-Factor Auth Required
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 text-center leading-relaxed">
+              Your account is secured with 2FA. Please enter the 6-digit code from Google Authenticator / Authy to complete sign-in.
+            </p>
+            <label
+              htmlFor="totpCode"
+              className="block text-xs font-semibold text-gray-700 dark:text-gray-300 text-center mb-1 tracking-wider uppercase"
+            >
+              Authenticator Code
+            </label>
+            <div className="mt-1 relative rounded-md shadow-xs">
+              <input
+                id="totpCode"
+                name="totpCode"
+                type="text"
+                maxLength={6}
+                required
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000 000"
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center text-3xl tracking-widest font-mono transition-colors"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-xs text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                "Verify Code & Complete Login"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTotpCode("");
+                dispatch(reset2FARequired());
+              }}
+              className="w-full flex justify-center py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      );
+    }
+
+    return (
+      <form className="space-y-6" onSubmit={onSubmit}>
+        {/* Email Address */}
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Email Address
+          </label>
+          <div className="mt-1 relative rounded-md shadow-xs">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Mail className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={onChange}
+              placeholder="you@example.com"
+              className="appearance-none block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white sm:text-sm transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Password */}
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Password
+          </label>
+          <div className="mt-1 relative rounded-md shadow-xs">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Lock className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={onChange}
+              placeholder="••••••••"
+              className="appearance-none block w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white sm:text-sm transition-colors"
+            />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label
+              htmlFor="remember-me"
+              className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
+            >
+              Remember me
+            </label>
+          </div>
+
+          <div className="text-sm">
+            <Link
+              to="/forgot-password"
+              className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+          >
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              "Login"
+            )}
+          </button>
+        </div>
+      </form>
+    );
+  };
 
   return (
     <div className="bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-950 min-h-screen transition-colors duration-200">
@@ -180,114 +364,7 @@ const Login = () => {
                 </div>
 
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4 transition-colors duration-200">
-                  <form className="space-y-6" onSubmit={onSubmit}>
-                    {/* Email Address */}
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        Email Address
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Mail className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          id="email"
-                          name="email"
-                          type="email"
-                          autoComplete="email"
-                          required
-                          value={email}
-                          onChange={onChange}
-                          placeholder="you@example.com"
-                          className="appearance-none block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white sm:text-sm transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label
-                        htmlFor="password"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        Password
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          id="password"
-                          name="password"
-                          type={showPassword ? "text" : "password"}
-                          autoComplete="current-password"
-                          required
-                          value={password}
-                          onChange={onChange}
-                          placeholder="••••••••"
-                          className="appearance-none block w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white sm:text-sm transition-colors"
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-gray-400 hover:text-gray-500 focus:outline-none"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-5 w-5" />
-                            ) : (
-                              <Eye className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <input
-                          id="remember-me"
-                          name="remember-me"
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label
-                          htmlFor="remember-me"
-                          className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
-                        >
-                          Remember me
-                        </label>
-                      </div>
-
-                      <div className="text-sm">
-                        <Link
-                          to="/forgot-password"
-                          className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                        >
-                          Forgot password?
-                        </Link>
-                      </div>
-                    </div>
-
-                    <div>
-                      <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          "Login"
-                        )}
-                      </button>
-                    </div>
-                  </form>
+                  {renderFormContent()}
                 </div>
 
                 <div className="mt-6">

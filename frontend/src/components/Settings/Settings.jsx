@@ -11,13 +11,17 @@ import {
   Smartphone,
   Mail,
   Globe,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   logout,
   deleteAccount,
   changePassword,
+  update2FAStatus,
 } from "../../features/auth/AuthSlice";
+import authService from "../../services/authService";
 import toast from "react-hot-toast";
 
 import { useTheme } from "../../context/ThemeContext";
@@ -27,6 +31,14 @@ const Settings = () => {
   const { user } = useSelector((state) => state.auth);
   const { theme, changeTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("profile");
+
+  // 2FA Security States
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [isDisableOpen, setIsDisableOpen] = useState(false);
+  const [setupData, setSetupData] = useState(null);
+  const [setupCode, setSetupCode] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [is2FALoading, setIs2FALoading] = useState(false);
 
   // Mock states for toggles
   const [notifications, setNotifications] = useState({
@@ -103,6 +115,60 @@ const Settings = () => {
 
   const handleToggle = (key) => {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleInitiate2FA = async () => {
+    setIs2FALoading(true);
+    try {
+      const data = await authService.setup2FA();
+      setSetupData(data);
+      setIsSetupOpen(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to initiate 2FA setup");
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  const handleVerifyAndEnable2FA = async (e) => {
+    e.preventDefault();
+    if (setupCode.length !== 6 || isNaN(Number(setupCode))) {
+      toast.error("Please enter a valid 6-digit TOTP code.");
+      return;
+    }
+    setIs2FALoading(true);
+    try {
+      await authService.verify2FA(setupCode);
+      dispatch(update2FAStatus(true));
+      toast.success("Two-Factor Authentication enabled successfully!");
+      setIsSetupOpen(false);
+      setSetupData(null);
+      setSetupCode("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Verification failed");
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  const handleDisable2FA = async (e) => {
+    e.preventDefault();
+    if (disableCode.length !== 6 || isNaN(Number(disableCode))) {
+      toast.error("Please enter a valid 6-digit TOTP code.");
+      return;
+    }
+    setIs2FALoading(true);
+    try {
+      await authService.disable2FA(disableCode);
+      dispatch(update2FAStatus(false));
+      toast.success("Two-Factor Authentication disabled successfully.");
+      setIsDisableOpen(false);
+      setDisableCode("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to disable 2FA");
+    } finally {
+      setIs2FALoading(false);
+    }
   };
 
   const renderContent = () => {
@@ -261,16 +327,36 @@ const Settings = () => {
               </h3>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                  <p className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
                     Authenticator App
+                    {user?.isTwoFactorEnabled && (
+                      <span className="text-xs font-semibold text-green-600 bg-green-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-green-200 dark:border-emerald-500/20">Active</span>
+                    )}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Secure your account with TOTP.
+                    {user?.isTwoFactorEnabled 
+                      ? "Your account is secured with time-based verification codes."
+                      : "Add an extra layer of protection using an authenticator app (Google Authenticator, Authy, etc.)."
+                    }
                   </p>
                 </div>
-                <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                  Enable
-                </button>
+                {user?.isTwoFactorEnabled ? (
+                  <button 
+                    onClick={() => setIsDisableOpen(true)}
+                    className="px-4 py-2 border border-red-200 dark:border-red-800/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 font-medium text-sm text-red-600 dark:text-red-400 transition-colors cursor-pointer"
+                  >
+                    Disable
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleInitiate2FA}
+                    disabled={is2FALoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed font-medium text-sm transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    {is2FALoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Enable
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -450,7 +536,7 @@ const Settings = () => {
               <div className="p-2 border-t border-gray-100 dark:border-gray-700 mt-2">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
                 >
                   <LogOut className="w-5 h-5" />
                   Log Out
@@ -527,6 +613,151 @@ const Settings = () => {
                 >
                   Permanently Delete
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2FA Enablement Setup Modal */}
+        {isSetupOpen && setupData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200 border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Enable Authenticator 2FA
+                </h3>
+                <button
+                  onClick={() => {
+                    setIsSetupOpen(false);
+                    setSetupData(null);
+                    setSetupCode("");
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <span className="text-2xl">&times;</span>
+                </button>
+              </div>
+
+              <div className="space-y-5 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-300 text-left">
+                  Scan the QR code below using your authenticator application (Google Authenticator, Microsoft Authenticator, Authy, etc.).
+                </p>
+
+                <div className="flex justify-center p-3 bg-white rounded-xl max-w-[200px] mx-auto border border-gray-200 shadow-sm">
+                  <img src={setupData.qrCode} alt="2FA QR Code" className="w-full h-auto object-contain" />
+                </div>
+
+                <div className="text-left bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200/50 dark:border-gray-700">
+                  <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide uppercase mb-1">Manual Secret Key</span>
+                  <code className="text-sm font-mono font-bold text-gray-900 dark:text-white break-all tracking-wider">{setupData.secret}</code>
+                </div>
+
+                <form onSubmit={handleVerifyAndEnable2FA} className="text-left space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wider uppercase mb-1.5">
+                      Confirm Verification Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={setupCode}
+                      onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, ""))}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-xl tracking-widest"
+                      placeholder="000000"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSetupOpen(false);
+                        setSetupData(null);
+                        setSetupCode("");
+                      }}
+                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={is2FALoading}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-75 font-semibold transition-colors flex items-center gap-2"
+                    >
+                      {is2FALoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Verify & Activate
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2FA Disable Modal */}
+        {isDisableOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200 border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-red-600 dark:text-red-500 flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Disable Authenticator 2FA
+                </h3>
+                <button
+                  onClick={() => {
+                    setIsDisableOpen(false);
+                    setDisableCode("");
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <span className="text-2xl">&times;</span>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Are you sure you want to disable Two-Factor Authentication? Your account will be less secure. Enter the code from your authenticator app to confirm.
+                </p>
+
+                <form onSubmit={handleDisable2FA} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-wider uppercase mb-1.5">
+                      Authenticator Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={disableCode}
+                      onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center font-mono text-xl tracking-widest"
+                      placeholder="000000"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDisableOpen(false);
+                        setDisableCode("");
+                      }}
+                      className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={is2FALoading}
+                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-75 font-semibold transition-colors flex items-center gap-2"
+                    >
+                      {is2FALoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Disable 2FA
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
