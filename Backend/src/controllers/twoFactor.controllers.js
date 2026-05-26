@@ -1,4 +1,4 @@
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verifySync } from "otplib";
 import qrcode from "qrcode";
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.models.js";
@@ -6,6 +6,20 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateAccessAndRefreshToken } from "./auth.controllers.js";
+
+// Backwards-compatible wrapper for modern functional otplib
+const authenticator = {
+  generateSecret() {
+    return generateSecret();
+  },
+  keyuri(email, serviceName, secret) {
+    return generateURI({ label: email, issuer: serviceName, secret });
+  },
+  verify({ token, secret }) {
+    const result = verifySync({ token, secret });
+    return result && result.valid === true;
+  }
+};
 
 // Helper to generate cookies options
 const getCookieOptions = (req) => {
