@@ -74,6 +74,10 @@ app.use(
 app.use(express.static("public"));
 app.use(cookieParser());
 
+app.get("/healthcheck", (req, res) => {
+  res.status(200).send("OK");
+});
+
 // import Routes
 import healthcheckRouter from "./routes/healthcheck.routes.js";
 import adminRouter from "./routes/admin.routes.js";

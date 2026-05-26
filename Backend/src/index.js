@@ -7,12 +7,14 @@ const PORT = process.env.PORT || 8001;
 const HOST = process.env.HOST || "0.0.0.0";
 
 import setupCronJobs from "./jobs/cron.js";
+import { startKeepAlive } from "./utils/keepAlive.js";
 
 connectDB()
   .then(() => {
     server.listen(PORT, HOST, () => {
       console.log(`✅Server is running on port ${PORT}`);
       setupCronJobs();
+      startKeepAlive();
     });
   })
   .catch((err) => {

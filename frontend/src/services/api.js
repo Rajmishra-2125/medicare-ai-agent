@@ -47,8 +47,83 @@ export const forceLogout = () => {
 
 // 4. Request Interceptor (Crucial for Cross-Domain Auth)
 // Tries to send access token via Authorization header as a robust fallback for cross-site cookie blocking.
+let isFirstRequest = true;
+let connectionTimer = null;
+let overlayElement = null;
+
+const showConnectingOverlay = () => {
+  if (overlayElement) return;
+
+  overlayElement = document.createElement("div");
+  overlayElement.id = "connection-waking-overlay";
+  overlayElement.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      color: white;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      transition: opacity 0.3s ease;
+    ">
+      <div style="text-align: center; max-width: 400px; padding: 2rem;">
+        <div style="
+          width: 50px;
+          height: 50px;
+          border: 4px solid rgba(99, 102, 241, 0.2);
+          border-top: 4px solid #6366f1;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 1.5rem auto;
+          box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        "></div>
+        <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #f8fafc;">
+          Connecting to secure server...
+        </h3>
+        <p style="font-size: 0.875rem; color: #94a3b8; line-height: 1.5; margin: 0;">
+          Our backend is spinning up on Render. This usually takes up to 30 seconds after brief inactivity. Thank you for your patience!
+        </p>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+  `;
+  document.body.appendChild(overlayElement);
+};
+
+const hideConnectingOverlay = () => {
+  if (overlayElement) {
+    overlayElement.style.opacity = "0";
+    setTimeout(() => {
+      if (overlayElement && overlayElement.parentNode) {
+        overlayElement.parentNode.removeChild(overlayElement);
+      }
+      overlayElement = null;
+    }, 300);
+  }
+};
+
 api.interceptors.request.use(
   (config) => {
+    if (isFirstRequest) {
+      connectionTimer = setTimeout(() => {
+        showConnectingOverlay();
+      }, 3000);
+    }
+
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -61,8 +136,20 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isFirstRequest) {
+      isFirstRequest = false;
+      clearTimeout(connectionTimer);
+      hideConnectingOverlay();
+    }
+    return response;
+  },
   async (error) => {
+    if (isFirstRequest) {
+      isFirstRequest = false;
+      clearTimeout(connectionTimer);
+      hideConnectingOverlay();
+    }
     
     // 2. Network error handling
     // Triggers if the server is offline, CORS blocks the request, or internet is disconnected.
