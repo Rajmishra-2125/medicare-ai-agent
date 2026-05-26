@@ -27,8 +27,6 @@ const processQueue = (error, token = null) => {
 // Keeps session clearing logic in one clean, exported module
 export const forceLogout = () => {
   localStorage.removeItem("user");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
   
   // Trigger cross-tab logout synchronization
   window.localStorage.setItem('logoutEvent', Date.now().toString());
@@ -124,10 +122,6 @@ api.interceptors.request.use(
       }, 3000);
     }
 
-    const accessToken = localStorage.getItem("accessToken");
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
     return config;
   },
   (error) => {
@@ -193,16 +187,8 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        // Pass the refreshToken in request body as a robust fallback if cookie is blocked
-        const res = await api.post(`/auth/refresh-token`, { refreshToken });
-
-        if (res.data?.data?.accessToken) {
-          localStorage.setItem("accessToken", res.data.data.accessToken);
-          if (res.data.data.refreshToken) {
-            localStorage.setItem("refreshToken", res.data.data.refreshToken);
-          }
-        }
+        // Refresh access token via HttpOnly cookies (automatically sent via withCredentials)
+        await api.post(`/auth/refresh-token`);
 
         isRefreshing = false;
         processQueue(null, true);

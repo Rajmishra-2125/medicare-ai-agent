@@ -6,13 +6,6 @@ const register = async (userData) => {
 
   if (response.data) {
     localStorage.setItem("user", JSON.stringify(response.data.data));
-    // Fallback storage for cross-site cookie blocking in dev/staging
-    if (response.data.accessToken) {
-      localStorage.setItem("accessToken", response.data.accessToken);
-    }
-    if (response.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.refreshToken);
-    }
   }
 
   return response.data.data;
@@ -24,12 +17,6 @@ const googleLogin = async (tokenData) => {
 
   if (response.data) {
     localStorage.setItem("user", JSON.stringify(response.data.data.user));
-    if (response.data.data.accessToken) {
-      localStorage.setItem("accessToken", response.data.data.accessToken);
-    }
-    if (response.data.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.data.refreshToken);
-    }
   }
 
   return response.data.data.user;
@@ -41,12 +28,6 @@ const login = async (userData) => {
 
   if (response.data) {
     localStorage.setItem("user", JSON.stringify(response.data.data.user));
-    if (response.data.data.accessToken) {
-      localStorage.setItem("accessToken", response.data.data.accessToken);
-    }
-    if (response.data.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.data.refreshToken);
-    }
   }
 
   return response.data.data.user;
@@ -58,12 +39,6 @@ const verifyOTP = async (otpData) => {
 
   if (response.data) {
     localStorage.setItem("user", JSON.stringify(response.data.data.user));
-    if (response.data.data.accessToken) {
-      localStorage.setItem("accessToken", response.data.data.accessToken);
-    }
-    if (response.data.data.refreshToken) {
-      localStorage.setItem("refreshToken", response.data.data.refreshToken);
-    }
   }
 
   return response.data.data.user;
@@ -77,8 +52,6 @@ const logout = async () => {
     console.error("Logout failed on server", error);
   }
   localStorage.removeItem("user");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
   window.localStorage.setItem('logoutEvent', Date.now().toString());
 };
 
@@ -142,8 +115,6 @@ const deleteAccount = async (data) => {
     },
   });
   localStorage.removeItem("user");
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
   return response.data;
 };
 
