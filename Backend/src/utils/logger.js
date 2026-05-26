@@ -24,10 +24,7 @@ const combinedTransport = new winston.transports.DailyRotateFile({
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === "production" ? "info" : "debug",
   format: logFormat,
-  transports: [
-    errorTransport,
-    combinedTransport,
-  ],
+  transports: [errorTransport, combinedTransport],
 });
 
 if (process.env.NODE_ENV !== "production") {

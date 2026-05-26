@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { uploadRecord, getRecords } from "../controllers/medicalRecords.controllers.js";
+import {
+  uploadRecord,
+  getRecords,
+} from "../controllers/medicalRecords.controllers.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
 import { upload } from "../middlewares/multer.middlewares.js";
 

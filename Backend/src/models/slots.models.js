@@ -64,4 +64,22 @@ slotSchema.index(
 // Optimize availability queries
 slotSchema.index({ doctorId: 1, status: 1, date: 1 });
 
+import { invalidateCachePattern } from "../middlewares/cache.middleware.js";
+
+slotSchema.post("save", async function (doc) {
+  if (doc && doc.doctorId) {
+    invalidateCachePattern(`slots:${doc.doctorId.toString()}:*`).catch((err) =>
+      console.error("Failed to invalidate slots cache on post-save:", err)
+    );
+  }
+});
+
+slotSchema.post(/^findOneAnd/, async function (doc) {
+  if (doc && doc.doctorId) {
+    invalidateCachePattern(`slots:${doc.doctorId.toString()}:*`).catch((err) =>
+      console.error("Failed to invalidate slots cache on post-query:", err)
+    );
+  }
+});
+
 export const Slot = mongoose.model("Slot", slotSchema);

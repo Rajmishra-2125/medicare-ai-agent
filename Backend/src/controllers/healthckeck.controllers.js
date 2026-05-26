@@ -1,12 +1,12 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiResponse } from "../utils/ApiResponse.js"
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const healthcheck = asyncHandler(async (req, res) => {
-    console.log("Healthcheck is working");
+  console.log("Healthcheck is working");
 
-    return res
+  return res
     .status(200)
-   .json(new ApiResponse(200, "OK", "Health check passed!"))
+    .json(new ApiResponse(200, "OK", "Health check passed!"));
 });
 
-export {healthcheck};
+export { healthcheck };

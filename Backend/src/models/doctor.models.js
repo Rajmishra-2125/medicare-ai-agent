@@ -313,4 +313,18 @@ doctorSchema.methods.updateDoctorStats = async function () {
   await this.save();
 };
 
+import { invalidateCachePattern } from "../middlewares/cache.middleware.js";
+
+doctorSchema.post("save", async function () {
+  invalidateCachePattern("doctors:*").catch((err) =>
+    console.error("Failed to invalidate doctors cache on post-save:", err)
+  );
+});
+
+doctorSchema.post(/^findOneAnd/, async function () {
+  invalidateCachePattern("doctors:*").catch((err) =>
+    console.error("Failed to invalidate doctors cache on post-query:", err)
+  );
+});
+
 export const Doctor = mongoose.model("Doctor", doctorSchema);

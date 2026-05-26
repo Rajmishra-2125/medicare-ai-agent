@@ -259,9 +259,11 @@ const getDoctorPrescriptions = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only doctors can access this route");
   }
 
-  const doctorProfile = await Doctor.findOne({ doctorId: userId }).setOptions({
-    includeInactive: true,
-  });
+  const doctorProfile = await Doctor.findOne({ doctorId: userId })
+    .setOptions({
+      includeInactive: true,
+    })
+    .lean();
 
   if (!doctorProfile) {
     throw new ApiError(404, "Doctor profile not found");
@@ -272,7 +274,8 @@ const getDoctorPrescriptions = asyncHandler(async (req, res) => {
     "prescription.medications": { $exists: true, $not: { $size: 0 } },
   })
     .populate("patientId", "fullname email phone age gender")
-    .sort({ date: -1 });
+    .sort({ date: -1 })
+    .lean();
 
   return res
     .status(200)

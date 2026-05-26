@@ -17,7 +17,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   if (!userId) {
     throw new ApiError(400, "user not found");
   }
-  const userDetails = await User.findById(userId).select("-password -refreshToken").lean();
+  const userDetails = await User.findById(userId)
+    .select("-password -refreshToken")
+    .lean();
 
   if (userDetails?.role === "DOCTOR") {
     const doctorInfo = await Doctor.findOne({ doctorId: userId }).lean();
@@ -26,23 +28,17 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     }
   }
 
-  return res
-    .status(200)
-    // Make sure we just return userDetails at root, OR keep format mapping
-    .json(new ApiResponse(200, userDetails, "current user details"));
+  return (
+    res
+      .status(200)
+      // Make sure we just return userDetails at root, OR keep format mapping
+      .json(new ApiResponse(200, userDetails, "current user details"))
+  );
 });
 
 // Update personal details
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const {
-    fullname,
-    username, 
-    email,
-    dateOfBirth, 
-    phone, 
-    gender
-  } = req.body
-
+  const { fullname, username, email, dateOfBirth, phone, gender } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
     req.user?._id,
@@ -53,8 +49,8 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
         email: email,
         dateOfBirth: dateOfBirth,
         phone: phone,
-        gender: gender
-      }
+        gender: gender,
+      },
     },
     {
       new: true,
@@ -62,61 +58,52 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   ).select("-password -refreshToken");
 
   return res
-  .status(200)
-  .json( new ApiResponse(200, updatedUser, "Profile updated successfully"))
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "Profile updated successfully"));
 });
 
 // Update account details
 const updateAddressDetails = asyncHandler(async (req, res) => {
-  const { 
-    street,
-    city,
-    state,
-    zipCode,
-    country
-  } = req.body
-
+  const { street, city, state, zipCode, country } = req.body;
 
   // Construct update object
   const updateData = {
     address: {
-        street,
-        city,
-        state,
-        zipCode,
-        country
-    }
+      street,
+      city,
+      state,
+      zipCode,
+      country,
+    },
   };
 
   const user = await User.findByIdAndUpdate(
-    req.user?._id, 
+    req.user?._id,
     {
-      $set: updateData
-    }, 
+      $set: updateData,
+    },
     {
       new: true,
     }
-  ).select("-password -refreshToken")
+  ).select("-password -refreshToken");
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(200, user, "Address updated successfully.")
-  )
+    .status(200)
+    .json(new ApiResponse(200, user, "Address updated successfully."));
 });
 
 // Update user avatar
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path
+  const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is missing")
+    throw new ApiError(400, "Avatar file is missing");
   }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath)
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
 
   if (!avatar) {
-    throw new ApiError(500, "Error while uploading avatar to Cloudinary")
+    throw new ApiError(500, "Error while uploading avatar to Cloudinary");
   }
 
   const user = await User.findByIdAndUpdate(
@@ -124,20 +111,16 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     {
       $set: {
         profileImage: avatar.secure_url,
-      }
+      },
     },
     {
       new: true,
     }
-  ).select("-password")
+  ).select("-password");
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-    200,
-    user,
-    "Avatar image updated successfully"))
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar image updated successfully"));
 });
 
 // Change current password
@@ -166,7 +149,10 @@ const deleteAccount = asyncHandler(async (req, res) => {
   const { reason, confirmationPassword } = req.body;
 
   if (!confirmationPassword) {
-    throw new ApiError(400, "Password confirmation is required to delete account");
+    throw new ApiError(
+      400,
+      "Password confirmation is required to delete account"
+    );
   }
 
   // Verify password
@@ -191,112 +177,116 @@ const deleteAccount = asyncHandler(async (req, res) => {
     user.accountStatus = "PENDING_DELETION";
     user.isActive = false;
     user.deletionScheduledAt = new Date();
-    user.deletionExecutionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    user.deletionExecutionDate = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000
+    );
     user.deletionReason = reason || "User requested deletion";
     await user.save({ session });
-    
 
     // Handle doctor deletion
     if (user.role === "DOCTOR") {
-      
       // 1. Find the Doctor Profile ID
       const doctorProfile = await Doctor.findOne({ doctorId: userId });
-      
+
       const targetDoctorId = doctorProfile ? doctorProfile._id : null;
 
       if (targetDoctorId) {
-          // Cancel future appointments using Doctor Profile ID
-          const futureAppointments = await Appointment.updateMany(
-            {
-              doctorId: targetDoctorId,
-              date: { $gte: new Date() },
-              status: { $in: ["PENDING", "CONFIRMED"] },
-            },
-            {
-              status: "CANCELLED",
-              cancellationReason: "Account deactivated",
-              cancelledAt: new Date(),
-              cancelledBy: userId,
-            },
-            { session }
-          );
+        // Cancel future appointments using Doctor Profile ID
+        const futureAppointments = await Appointment.updateMany(
+          {
+            doctorId: targetDoctorId,
+            date: { $gte: new Date() },
+            status: { $in: ["PENDING", "CONFIRMED"] },
+          },
+          {
+            status: "CANCELLED",
+            cancellationReason: "Account deactivated",
+            cancelledAt: new Date(),
+            cancelledBy: userId,
+          },
+          { session }
+        );
 
-          // Soft delete all reviews by this doctor (as recipient)
-          await Review.updateMany(
-            { doctorId: targetDoctorId },
-            {
-              isDeleted: true,
-              deletedAt: new Date()
-            },
-            { session }
-          );
+        // Soft delete all reviews by this doctor (as recipient)
+        await Review.updateMany(
+          { doctorId: targetDoctorId },
+          {
+            isDeleted: true,
+            deletedAt: new Date(),
+          },
+          { session }
+        );
 
-          // Soft delete all follows for this doctor
-          await Follow.updateMany(
-            { doctorId: targetDoctorId },
-            {
-              isDeleted: true,
-              deletedAt: new Date()
-            },
-            { session }
-          );
+        // Soft delete all follows for this doctor
+        await Follow.updateMany(
+          { doctorId: targetDoctorId },
+          {
+            isDeleted: true,
+            deletedAt: new Date(),
+          },
+          { session }
+        );
 
-          console.log(`Doctor ${user.email} (Profile: ${targetDoctorId}): Cancelled ${futureAppointments.modifiedCount} future appointments.`);
-          
-          // Hide Profile
-          await Doctor.findByIdAndUpdate(targetDoctorId, 
-              { isVisible: false, isAcceptingNewPatients: false },
-              { session }
-          );
+        console.log(
+          `Doctor ${user.email} (Profile: ${targetDoctorId}): Cancelled ${futureAppointments.modifiedCount} future appointments.`
+        );
+
+        // Hide Profile
+        await Doctor.findByIdAndUpdate(
+          targetDoctorId,
+          { isVisible: false, isAcceptingNewPatients: false },
+          { session }
+        );
       } else {
-          console.warn(`Doctor User ${userId} has no Doctor Profile. Skipping cascading deletes.`);
+        console.warn(
+          `Doctor User ${userId} has no Doctor Profile. Skipping cascading deletes.`
+        );
       }
+    } else if (user.role === "PATIENT") {
+      // Cancel all future appointments
+      const futureAppointments = await Appointment.updateMany(
+        {
+          patientId: userId,
+          date: { $gte: new Date() },
+          status: { $in: ["PENDING", "CONFIRMED"] },
+        },
+        {
+          status: "CANCELLED",
+          cancellationReason: "Account deactivated",
+          cancelledAt: new Date(),
+          cancelledBy: userId,
+        },
+        { session }
+      );
 
-  } else if (user.role === "PATIENT") {
+      // Soft delete all reviews by this patient (as author)
+      await Review.updateMany(
+        { patientId: userId },
+        {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+        { session }
+      );
 
-    // Cancel all future appointments
-    const futureAppointments = await Appointment.updateMany(
-      {
-        patientId: userId,
-        date: { $gte: new Date() },
-        status: { $in: ["PENDING", "CONFIRMED"] },
-      },
-      {
-        status: "CANCELLED",
-        cancellationReason: "Account deactivated",
-        cancelledAt: new Date(),
-        cancelledBy: userId,
-      },
-      { session }
-    );
+      // Soft delete all follows by this patient
+      await Follow.updateMany(
+        { patientId: userId },
+        {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+        { session }
+      );
 
-    // Soft delete all reviews by this patient (as author)
-    await Review.updateMany(
-      { patientId: userId },
-      {
-        isDeleted: true,
-        deletedAt: new Date()
-      },
-      { session }
-    );
-
-    // Soft delete all follows by this patient
-    await Follow.updateMany(
-      { patientId: userId },
-      {
-        isDeleted: true,
-        deletedAt: new Date()
-      },
-      { session }
-    );
-
-    console.log(`Patient ${user.email}: Cancelled ${futureAppointments.modifiedCount} future appointments.`);
-
-  }
+      console.log(
+        `Patient ${user.email}: Cancelled ${futureAppointments.modifiedCount} future appointments.`
+      );
+    }
 
     // Clear all sessions
 
-    await Session.deleteMany({ userId }, { session })
+    await Session.deleteMany({ userId }, { session });
 
     await session.commitTransaction();
 
@@ -323,33 +313,37 @@ const deleteAccount = asyncHandler(async (req, res) => {
           "Account deactivated successfully"
         )
       );
-
-
-   } catch (error) {
+  } catch (error) {
     // Abort transaction on error
     await session.abortTransaction();
 
-    throw new ApiError(500, "Error during account deletion process", error.message);
-
-   } finally {
+    throw new ApiError(
+      500,
+      "Error during account deletion process",
+      error.message
+    );
+  } finally {
     session.endSession();
-   }
-
   }
-);
+});
 
 // Recover deleted account
 const recoverDeletedAccount = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
 
   if (!(email || username) || !password) {
-     throw new ApiError(400, "Email/Username and Password are required for recovery");
+    throw new ApiError(
+      400,
+      "Email/Username and Password are required for recovery"
+    );
   }
 
   // Find user explicitly including inactive ones
   const user = await User.findOne({
-    $or: [{ username }, { email }]
-  }).select("+password").setOptions({ includeInactive: true });
+    $or: [{ username }, { email }],
+  })
+    .select("+password")
+    .setOptions({ includeInactive: true });
 
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -374,155 +368,154 @@ const recoverDeletedAccount = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-  // Restore account/ Start session
-  user.accountStatus = "ACTIVE";
-  user.isActive = true;
-  user.deletionScheduledAt = null;
-  user.deletionExecutionDate = null;
-  user.deletionReason = null;
-  await user.save();
+    // Restore account/ Start session
+    user.accountStatus = "ACTIVE";
+    user.isActive = true;
+    user.deletionScheduledAt = null;
+    user.deletionExecutionDate = null;
+    user.deletionReason = null;
+    await user.save();
 
-  // Restore role-specific data
-  if (user.role === "DOCTOR") {
-    // Restore doctor profile visibility
-    await Doctor.findOneAndUpdate({ doctorId: user._id }, { isVisible: true,
-    isAcceptingNewPatients: true 
-  },
-  {
-    session
-  }
-);
+    // Restore role-specific data
+    if (user.role === "DOCTOR") {
+      // Restore doctor profile visibility
+      await Doctor.findOneAndUpdate(
+        { doctorId: user._id },
+        { isVisible: true, isAcceptingNewPatients: true },
+        {
+          session,
+        }
+      );
 
-// Restore Reviews
-    await Review.updateMany(
-      { 
-        doctorId: user._id,
-        isDeleted: true,
-        deletedAt: { $gte: user.deletionScheduledAt}
-      },
-      {
-        isDeleted: false,
-        $unset: { deletedAt: "" }
-      },
-      { session }
-    )
-
-    // Restore Follows
-    await Follow.updateMany(
-      {
-        doctorId: user._id,
-        isDeleted: true,
-        deletedAt: { $gte: user.deletionScheduledAt }
-      },
-      {
-        isDeleted: false,
-        $unset: { deletedAt: "" }
-      },
-      { session }
-    );
-    
-    // Restore Appointments within 2 Days of deletion date
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-
-    await Appointment.updateMany(
-      {
-        doctorId: user._id,
-        status: "CANCELLED",
-        cancelledAt: { $gte: twoDaysAgo },
-        cancellationReason: "Account deactivated"
-      },
-      {
-        status: "CONFIRMED",
-        $unset: {
-          cancellationReason: "",
-          cancelledAt: "",
-          cancelledBy: ""
+      // Restore Reviews
+      await Review.updateMany(
+        {
+          doctorId: user._id,
+          isDeleted: true,
+          deletedAt: { $gte: user.deletionScheduledAt },
         },
-      },
-      { session}
-    )
+        {
+          isDeleted: false,
+          $unset: { deletedAt: "" },
+        },
+        { session }
+      );
 
+      // Restore Follows
+      await Follow.updateMany(
+        {
+          doctorId: user._id,
+          isDeleted: true,
+          deletedAt: { $gte: user.deletionScheduledAt },
+        },
+        {
+          isDeleted: false,
+          $unset: { deletedAt: "" },
+        },
+        { session }
+      );
 
-  } else if (user.role === "PATIENT") {
-    // Additional restoration logic for patients if needed
+      // Restore Appointments within 2 Days of deletion date
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
-    // Restore Reviews
-    await Review.updateMany(
-      {
-        patientId: user._id,
-        isDeleted: true,
-        deletedAt: { $gte: user.deletionScheduledAt }
-      },
-      {
-        isDeleted: false,
-        $unset: {
-          deletedAt: "",
-        }
-      },
-      { session }
-    )
+      await Appointment.updateMany(
+        {
+          doctorId: user._id,
+          status: "CANCELLED",
+          cancelledAt: { $gte: twoDaysAgo },
+          cancellationReason: "Account deactivated",
+        },
+        {
+          status: "CONFIRMED",
+          $unset: {
+            cancellationReason: "",
+            cancelledAt: "",
+            cancelledBy: "",
+          },
+        },
+        { session }
+      );
+    } else if (user.role === "PATIENT") {
+      // Additional restoration logic for patients if needed
 
+      // Restore Reviews
+      await Review.updateMany(
+        {
+          patientId: user._id,
+          isDeleted: true,
+          deletedAt: { $gte: user.deletionScheduledAt },
+        },
+        {
+          isDeleted: false,
+          $unset: {
+            deletedAt: "",
+          },
+        },
+        { session }
+      );
 
-    // Restore Follows
-    await Follow.updateMany(
-      {
-        patientId: user._id,
-        isDeleted: true,
-        deletedAt: { $gte: user.deletionScheduledAt }
-      },
-      {
-        isDeleted: false,
-        $unset: {
-          deletedAt: "",
-        }
-      },
-      { session }
-    )
+      // Restore Follows
+      await Follow.updateMany(
+        {
+          patientId: user._id,
+          isDeleted: true,
+          deletedAt: { $gte: user.deletionScheduledAt },
+        },
+        {
+          isDeleted: false,
+          $unset: {
+            deletedAt: "",
+          },
+        },
+        { session }
+      );
 
-    // Restore Appointments within 2 Days of deletion date
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      // Restore Appointments within 2 Days of deletion date
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
-    await Appointment.updateMany(
-      {
-        patientId: user._id,
-        status: "CANCELLED",
-        cancelledAt: { $gte: twoDaysAgo },
-        cancellationReason: "Patient Account deactivated"
-      },
-      {
-        status: "CONFIRMED",
-        $unset: {
-          cancellationReason: "",
-          cancelledAt: "",
-          cancelledBy: "", 
-        }
-      },
-      { session }
-    )
-  }
+      await Appointment.updateMany(
+        {
+          patientId: user._id,
+          status: "CANCELLED",
+          cancelledAt: { $gte: twoDaysAgo },
+          cancellationReason: "Patient Account deactivated",
+        },
+        {
+          status: "CONFIRMED",
+          $unset: {
+            cancellationReason: "",
+            cancelledAt: "",
+            cancelledBy: "",
+          },
+        },
+        { session }
+      );
+    }
 
+    await session.commitTransaction();
 
-  await session.commitTransaction();
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { user },
-        "Account recovery successfully! Welcome back."
-      )
-    );
- } catch (error) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { user },
+          "Account recovery successfully! Welcome back."
+        )
+      );
+  } catch (error) {
     // Abort transaction on error
     await session.abortTransaction();
 
-    throw new ApiError(500, "Error during account recovery process", error.message);
+    throw new ApiError(
+      500,
+      "Error during account recovery process",
+      error.message
+    );
   } finally {
     session.endSession();
-  } 
+  }
 });
-
 
 export {
   getCurrentUser,

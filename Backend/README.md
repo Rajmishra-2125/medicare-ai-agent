@@ -61,32 +61,34 @@ Backend/
 
 The API is versioned at `v1`. The base URL prefix is: `/api/v1`
 
-| Resource         | Prefix                   | Description                                                |
-|------------------|--------------------------|------------------------------------------------------------|
-| **Health**       | `/healthcheck`           | Service uptime and telemetry.                              |
-| **Auth**         | `/auth`                  | Login, Registration, OAuth, OTP verify, Tokens.            |
-| **Admin**        | `/admin`                 | System-wide management, Suspend accounts, global stats.    |
-| **Users**        | `/users`                 | Profile updates, avatar uploads, password modifications.   |
-| **Doctors**      | `/doctors`               | Doctor directories, onboarding, verification, specialties. |
-| **Appointments** | `/appointments`          | Booking flow, cancellations, history, and status updates.  |
-| **Slots**        | `/slots`                 | Availability queries for doctors' time grids.              |
-| **Medical Rec.** | `/medical-records`       | Manage patient prescriptions, history, and medical docs.   |
-| **Payments**     | `/payments`              | Razorpay order creation and verification hooks.            |
-| **Notifications**| `/notifications`         | Get unread alerts or mark notifications as viewed.         |
-| **AI Agent**     | `/agent`                 | Interact with the Gemini-powered MediBot assistant.        |
+| Resource          | Prefix             | Description                                                |
+| ----------------- | ------------------ | ---------------------------------------------------------- |
+| **Health**        | `/healthcheck`     | Service uptime and telemetry.                              |
+| **Auth**          | `/auth`            | Login, Registration, OAuth, OTP verify, Tokens.            |
+| **Admin**         | `/admin`           | System-wide management, Suspend accounts, global stats.    |
+| **Users**         | `/users`           | Profile updates, avatar uploads, password modifications.   |
+| **Doctors**       | `/doctors`         | Doctor directories, onboarding, verification, specialties. |
+| **Appointments**  | `/appointments`    | Booking flow, cancellations, history, and status updates.  |
+| **Slots**         | `/slots`           | Availability queries for doctors' time grids.              |
+| **Medical Rec.**  | `/medical-records` | Manage patient prescriptions, history, and medical docs.   |
+| **Payments**      | `/payments`        | Razorpay order creation and verification hooks.            |
+| **Notifications** | `/notifications`   | Get unread alerts or mark notifications as viewed.         |
+| **AI Agent**      | `/agent`           | Interact with the Gemini-powered MediBot assistant.        |
 
-*(Detailed swagger/postman documentation to be hosted separately or via interactive `/docs` route if enabled)*
+_(Detailed swagger/postman documentation to be hosted separately or via interactive `/docs` route if enabled)_
 
 ---
 
 ## 💻 Local Setup Instructions
 
 ### 1. Prerequisites
+
 - **Node.js** (v18 or higher recommended)
 - **MongoDB** Instance (Local or Atlas)
 - **Redis** Server (For caching and rate limiting)
 
 ### 2. Clone and Install
+
 ```bash
 # Navigate to backend directory
 cd Backend
@@ -96,7 +98,9 @@ npm install
 ```
 
 ### 3. Environment Variables
+
 Create a `.env` file in the root of the `./Backend` directory using the provided `.env.sample`. Below are the critical keys required:
+
 ```ini
 PORT=8000
 MONGODB_URI=your_mongodb_cluster_url
@@ -138,6 +142,7 @@ npm run dev
 # Run in production mode
 npm start
 ```
+
 By default, the server will launch on `http://localhost:8000`.
 
 ---
@@ -145,9 +150,11 @@ By default, the server will launch on `http://localhost:8000`.
 ## 🧪 Background Jobs & Maintenance
 
 Located in `src/jobs/`, the backend utilizes node-cron to periodically offload heavy database maintenance tasks.
+
 - **Account Deletion Job**: Checks for accounts marked strictly for deletion more than 30 days ago and fully purges them and their relational dependencies (Appointments, slots, notifications) from MongoDB.
 
 ## 🤝 Contribution Structure
+
 - **Formatting**: The project enforces prettier. Use `npm run format` prior to committing.
 - **Error Handling**: Use the standardized `ApiError` class for all manual threshold exceptions.
 - **Response Format**: Use the standardized `ApiResponse` wrapper in your controllers for consistency.

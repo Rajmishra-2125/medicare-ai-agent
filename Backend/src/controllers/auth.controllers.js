@@ -187,7 +187,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({
     email: normalizedEmail,
-}).select("+password");
+  }).select("+password");
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -217,13 +217,11 @@ const loginUser = asyncHandler(async (req, res) => {
   );
 
   const options = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production"
-    ? "none"
-    : "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-};
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
 
   return res
     .status(200)
@@ -262,8 +260,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     }
 
     if (incomingRefreshToken !== user?.refreshToken) {
-  throw new ApiError(401, "Refresh token is invalid or used");
-}
+      throw new ApiError(401, "Refresh token is invalid or used");
+    }
 
     const options = {
       httpOnly: true,
@@ -321,21 +319,26 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
     } catch (idTokenError) {
       // If it fails, assume it's an access_token (from useGoogleLogin hook)
       try {
-        const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${googleToken}` }
-        });
-        
+        const response = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          {
+            headers: { Authorization: `Bearer ${googleToken}` },
+          }
+        );
+
         if (!response.ok) {
           throw new Error("Invalid Google token");
         }
-        
+
         const data = await response.json();
         email = data.email;
         name = data.name;
         picture = data.picture;
         googleId = data.sub;
       } catch (accessTokenError) {
-        throw new Error("Failed to authenticate with Google: " + accessTokenError.message);
+        throw new Error(
+          "Failed to authenticate with Google: " + accessTokenError.message
+        );
       }
     }
 

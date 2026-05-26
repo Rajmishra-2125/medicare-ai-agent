@@ -16,11 +16,18 @@ const getCashfreeInstance = () => {
       "Cashfree API keys are not configured in environment variables"
     );
   }
-  
+
   // Use SANDBOX for dev/test, PRODUCTION for live
-  const environment = process.env.CASHFREE_ENVIRONMENT === "PRODUCTION" ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
-  
-  return new Cashfree(environment, process.env.CASHFREE_APP_ID, process.env.CASHFREE_SECRET_KEY);
+  const environment =
+    process.env.CASHFREE_ENVIRONMENT === "PRODUCTION"
+      ? CFEnvironment.PRODUCTION
+      : CFEnvironment.SANDBOX;
+
+  return new Cashfree(
+    environment,
+    process.env.CASHFREE_APP_ID,
+    process.env.CASHFREE_SECRET_KEY
+  );
 };
 
 // Create a new Cashfree Order
@@ -34,7 +41,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  const appointment = await Appointment.findById(appointmentId).populate("patientId");
+  const appointment =
+    await Appointment.findById(appointmentId).populate("patientId");
   if (!appointment) {
     throw new ApiError(404, "Appointment not found");
   }
@@ -46,7 +54,9 @@ export const createOrder = asyncHandler(async (req, res) => {
   const cashfree = getCashfreeInstance();
 
   // Cashfree amount is in standard decimals (e.g. 500.00)
-  const fee = appointment.consultationFee ? Number(appointment.consultationFee) : 0;
+  const fee = appointment.consultationFee
+    ? Number(appointment.consultationFee)
+    : 0;
 
   if (fee <= 0) {
     throw new ApiError(
@@ -67,7 +77,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       customer_name: patient.fullname || "Patient",
       customer_email: patient.email || "patient@medicare.com",
       customer_phone: patient.phone || "9999999999",
-    }
+    },
   };
 
   try {
@@ -80,9 +90,18 @@ export const createOrder = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, response.data, "Payment order created successfully"));
+      .json(
+        new ApiResponse(
+          200,
+          response.data,
+          "Payment order created successfully"
+        )
+      );
   } catch (error) {
-    console.error("Cashfree Order Creation Error:", error.response?.data || error);
+    console.error(
+      "Cashfree Order Creation Error:",
+      error.response?.data || error
+    );
     throw new ApiError(500, "Failed to create payment order with Cashfree");
   }
 });
@@ -95,7 +114,8 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Missing required payment breakdown details");
   }
 
-  const appointment = await Appointment.findById(appointmentId).populate("doctorId");
+  const appointment =
+    await Appointment.findById(appointmentId).populate("doctorId");
   if (!appointment) {
     throw new ApiError(404, "Appointment not found");
   }
@@ -104,11 +124,14 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
   try {
     const response = await cashfree.PGFetchOrder(order_id);
-    
+
     if (response.data.order_status !== "PAID") {
       appointment.paymentStatus = "FAILED";
       await appointment.save();
-      throw new ApiError(400, "Payment verification failed. Order is not paid.");
+      throw new ApiError(
+        400,
+        "Payment verification failed. Order is not paid."
+      );
     }
 
     // Payment is successful
@@ -180,7 +203,6 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(new ApiResponse(200, appointment, "Payment verified successfully"));
-
   } catch (error) {
     console.error("Cashfree Fetch Order Error:", error.response?.data || error);
     throw new ApiError(500, "Failed to verify payment with Cashfree");

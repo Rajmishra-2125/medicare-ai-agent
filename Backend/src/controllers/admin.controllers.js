@@ -74,7 +74,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       Doctor.find().sort({ createdAt: -1 }).limit(2),
     ]);
 
-    const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+    const totalRevenue =
+      revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
 
     // Fill in missing chart data points for a smooth chart
     const chartData = [];
@@ -84,7 +85,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         d.setMonth(d.getMonth() - i);
         const monthStr = d.toISOString().slice(0, 7);
         const monthData = chartDataRaw.find((item) => item._id === monthStr);
-        chartData.push({ date: monthStr, appointments: monthData ? monthData.appointments : 0 });
+        chartData.push({
+          date: monthStr,
+          appointments: monthData ? monthData.appointments : 0,
+        });
       }
     } else {
       for (let i = daysToFetch - 1; i >= 0; i--) {
@@ -92,7 +96,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split("T")[0];
         const dayData = chartDataRaw.find((item) => item._id === dateStr);
-        chartData.push({ date: dateStr, appointments: dayData ? dayData.appointments : 0 });
+        chartData.push({
+          date: dateStr,
+          appointments: dayData ? dayData.appointments : 0,
+        });
       }
     }
 
@@ -125,7 +132,15 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     return res.status(200).json(
       new ApiResponse(
         200,
-        { totalUsers, totalDoctors, totalAppointments, totalRevenue, recentAppointments, recentActivities, chartData },
+        {
+          totalUsers,
+          totalDoctors,
+          totalAppointments,
+          totalRevenue,
+          recentAppointments,
+          recentActivities,
+          chartData,
+        },
         "Dashboard stats fetched successfully"
       )
     );
@@ -134,12 +149,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   }
 });
 
-
 const getAllUsers = asyncHandler(async (req, res) => {
   try {
     const pageParam = req.query.page;
     const page = parseInt(pageParam) || 1;
-    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const limit = pageParam ? parseInt(req.query.limit) || 20 : 1000;
     const skip = pageParam ? (page - 1) * limit : 0;
     const search = req.query.search || "";
     const role = req.query.role; // Optional role filter
@@ -193,7 +207,7 @@ const getAllDoctors = asyncHandler(async (req, res) => {
   try {
     const pageParam = req.query.page;
     const page = parseInt(pageParam) || 1;
-    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const limit = pageParam ? parseInt(req.query.limit) || 20 : 1000;
     const skip = pageParam ? (page - 1) * limit : 0;
     const search = req.query.search || "";
     const isVerified = req.query.isVerified;
@@ -204,15 +218,17 @@ const getAllDoctors = asyncHandler(async (req, res) => {
         { doctor: { $regex: search, $options: "i" } },
         { specialization: { $regex: search, $options: "i" } },
         { "doctorId.fullname": { $regex: search, $options: "i" } },
-        { "doctorId.email": { $regex: search, $options: "i" } }
+        { "doctorId.email": { $regex: search, $options: "i" } },
       ];
     }
     if (isVerified !== undefined) {
       query.isVerified = isVerified === "true";
     }
 
-    const total = await Doctor.countDocuments(query).setOptions({ includeInactive: true });
-    
+    const total = await Doctor.countDocuments(query).setOptions({
+      includeInactive: true,
+    });
+
     // Aggregation is better here if we need to search by populated fields, but for simplicity we'll just populate.
     // If search includes populated fields, we should ideally use aggregate.
     const doctors = await Doctor.find(query)
@@ -228,14 +244,15 @@ const getAllDoctors = asyncHandler(async (req, res) => {
     let finalTotal = total;
     if (search) {
       const searchLower = search.toLowerCase();
-      finalDoctors = doctors.filter(doc => 
-        doc.doctor?.toLowerCase().includes(searchLower) ||
-        doc.specialization?.toLowerCase().includes(searchLower) ||
-        doc.doctorId?.fullname?.toLowerCase().includes(searchLower) ||
-        doc.doctorId?.email?.toLowerCase().includes(searchLower)
+      finalDoctors = doctors.filter(
+        (doc) =>
+          doc.doctor?.toLowerCase().includes(searchLower) ||
+          doc.specialization?.toLowerCase().includes(searchLower) ||
+          doc.doctorId?.fullname?.toLowerCase().includes(searchLower) ||
+          doc.doctorId?.email?.toLowerCase().includes(searchLower)
       );
       finalTotal = finalDoctors.length;
-      // Note: This breaks exact pagination counts if filtering in memory, 
+      // Note: This breaks exact pagination counts if filtering in memory,
       // but is an acceptable trade-off without writing complex aggregations.
     }
 
@@ -263,7 +280,7 @@ const getAllAppointments = asyncHandler(async (req, res) => {
   try {
     const pageParam = req.query.page;
     const page = parseInt(pageParam) || 1;
-    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const limit = pageParam ? parseInt(req.query.limit) || 20 : 1000;
     const skip = pageParam ? (page - 1) * limit : 0;
     const search = req.query.search || "";
     const status = req.query.status;
@@ -274,7 +291,7 @@ const getAllAppointments = asyncHandler(async (req, res) => {
     }
 
     const total = await Appointment.countDocuments(query);
-    
+
     let appointments = await Appointment.find(query)
       .populate("patientId", "fullname email phone profileImage")
       .populate({
@@ -292,11 +309,12 @@ const getAllAppointments = asyncHandler(async (req, res) => {
     let finalTotal = total;
     if (search) {
       const searchLower = search.toLowerCase();
-      finalAppointments = appointments.filter(apt => 
-        apt.patientId?.fullname?.toLowerCase().includes(searchLower) ||
-        apt.patientId?.email?.toLowerCase().includes(searchLower) ||
-        apt.doctorId?.doctor?.toLowerCase().includes(searchLower) ||
-        apt.appointmentId?.toLowerCase().includes(searchLower)
+      finalAppointments = appointments.filter(
+        (apt) =>
+          apt.patientId?.fullname?.toLowerCase().includes(searchLower) ||
+          apt.patientId?.email?.toLowerCase().includes(searchLower) ||
+          apt.doctorId?.doctor?.toLowerCase().includes(searchLower) ||
+          apt.appointmentId?.toLowerCase().includes(searchLower)
       );
       finalTotal = finalAppointments.length;
     }
@@ -704,7 +722,7 @@ const getAllSlots = asyncHandler(async (req, res) => {
   try {
     const pageParam = req.query.page;
     const page = parseInt(pageParam) || 1;
-    const limit = pageParam ? (parseInt(req.query.limit) || 20) : 1000;
+    const limit = pageParam ? parseInt(req.query.limit) || 20 : 1000;
     const skip = pageParam ? (page - 1) * limit : 0;
     const search = req.query.search || "";
     const status = req.query.status;
@@ -713,12 +731,12 @@ const getAllSlots = asyncHandler(async (req, res) => {
     if (status && status !== "all") {
       query.status = status;
     }
-    
+
     // Allow searching by exact slot number or date string if provided
     if (search) {
       query.$or = [
         { slotNumber: { $regex: search, $options: "i" } },
-        { doctor: { $regex: search, $options: "i" } } // since doctor name is saved directly in slot model
+        { doctor: { $regex: search, $options: "i" } }, // since doctor name is saved directly in slot model
       ];
     }
 
