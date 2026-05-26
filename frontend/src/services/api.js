@@ -26,6 +26,10 @@ const processQueue = (error, token = null) => {
 // 3. Logout helper function
 // Keeps session clearing logic in one clean, exported module
 export const forceLogout = () => {
+  // Return early if the user session is already cleared to avoid loops
+  if (!localStorage.getItem("user")) {
+    return;
+  }
   localStorage.removeItem("user");
   
   // Trigger cross-tab logout synchronization
