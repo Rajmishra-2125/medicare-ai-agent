@@ -729,7 +729,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
                                       )}
 
                                       {/* Video Consultation Call launcher */}
-                                      {appointment.status?.toUpperCase() === 'CONFIRMED' && appointment.type === 'Video Consultation' && (
+                                      {appointment.status?.toUpperCase() === 'CONFIRMED' && (
                                           <button 
                                               onClick={() => {
                                                   navigate(`/consultation/${appointment._id}`);

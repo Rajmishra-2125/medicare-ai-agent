@@ -105,7 +105,7 @@ const DoctorAppointments = () => {
                     </span>
 
                     {/* Join WebRTC Video Consultation launcher */}
-                    {apt.status === 'CONFIRMED' && apt.meetingType === 'ONLINE' && (
+                    {apt.status === 'CONFIRMED' && (
                       <button 
                         onClick={() => navigate(`/consultation/${apt._id}`)}
                         className="p-2 text-indigo-600 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition-all animate-pulse cursor-pointer"
