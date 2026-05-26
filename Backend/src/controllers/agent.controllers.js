@@ -136,7 +136,7 @@ const getAvailableSlots = async ({ doctorName, dateStr }) => {
     // Fetch matching slots (up to 100 to keep it efficient)
     const rawSlots = await Slot.find(query).limit(100).lean();
 
-    // Sort slots chronologically in JS to prevent alphabetical sort bugs
+    // Sort slots chronologically in JS to prevent alphabetical sort bugs and filter out past slots for today
     const slots = [...rawSlots]
       .sort((a, b) => {
         const dateA = new Date(a.date).getTime();
@@ -146,6 +146,59 @@ const getAvailableSlots = async ({ doctorName, dateStr }) => {
         const timeA = parseTimeToMinutes(a.startTime);
         const timeB = parseTimeToMinutes(b.startTime);
         return timeA - timeB;
+      })
+      .filter((s) => {
+        const slotDate = new Date(s.date);
+        const today = new Date();
+
+        // 1. If slot date is strictly in the past, discard it
+        if (slotDate.getUTCFullYear() < today.getUTCFullYear()) return false;
+        if (
+          slotDate.getUTCFullYear() === today.getUTCFullYear() &&
+          slotDate.getUTCMonth() < today.getUTCMonth()
+        )
+          return false;
+        if (
+          slotDate.getUTCFullYear() === today.getUTCFullYear() &&
+          slotDate.getUTCMonth() === today.getUTCMonth() &&
+          slotDate.getUTCDate() < today.getUTCDate()
+        )
+          return false;
+
+        // 2. If slot is today, ensure slot start time is in the future
+        if (
+          slotDate.getUTCFullYear() === today.getUTCFullYear() &&
+          slotDate.getUTCMonth() === today.getUTCMonth() &&
+          slotDate.getUTCDate() === today.getUTCDate()
+        ) {
+          const timezone = "Asia/Kolkata";
+          try {
+            const options = {
+              timeZone: timezone,
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            };
+            const formatter = new Intl.DateTimeFormat("en-US", options);
+            const parts = formatter.formatToParts(today);
+            const hourPart = parts.find((p) => p.type === "hour").value;
+            const minutePart = parts.find((p) => p.type === "minute").value;
+            const dayPeriodPart = parts.find(
+              (p) => p.type === "dayPeriod"
+            ).value;
+            const currentMinutesStr = `${hourPart}:${minutePart} ${dayPeriodPart}`;
+            const currentMinutes = parseTimeToMinutes(currentMinutesStr);
+            const slotMinutes = parseTimeToMinutes(s.startTime);
+
+            // Filter out slots starting within 10 minutes from now
+            return slotMinutes > currentMinutes + 10;
+          } catch (e) {
+            // Fallback: don't filter if timezone formatting fails
+            return true;
+          }
+        }
+
+        return true;
       })
       .slice(0, 10);
 
