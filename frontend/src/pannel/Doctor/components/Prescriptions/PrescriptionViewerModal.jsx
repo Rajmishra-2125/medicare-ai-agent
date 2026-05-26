@@ -86,6 +86,43 @@ const PrescriptionViewerModal = ({ isOpen, onClose, appointment }) => {
                 </div>
             )}
 
+            {/* Digital Fulfillment Details */}
+            {(prescription?.expiryDate || prescription?.refillsRemaining > 0 || prescription?.pharmacyDetails) && (
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-6 space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">Fulfillment & Refill Controls</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {prescription.expiryDate && (
+                    <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider mb-1">Prescription Expiration</p>
+                      <p className={`font-bold text-sm ${new Date(prescription.expiryDate) < new Date() ? "text-red-500" : "text-gray-950 dark:text-white"}`}>
+                        {new Date(prescription.expiryDate).toLocaleDateString()}
+                        {new Date(prescription.expiryDate) < new Date() && " (Expired)"}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider mb-1">Refills Remaining</p>
+                    <p className="font-bold text-sm text-gray-950 dark:text-white">
+                      {prescription.refillsRemaining || 0} Refills Left
+                    </p>
+                  </div>
+                </div>
+
+                {prescription.pharmacyDetails?.name && (
+                  <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider mb-2">Pharmacy Instructions</p>
+                    <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                      <p className="font-bold text-gray-900 dark:text-white">{prescription.pharmacyDetails.name}</p>
+                      {prescription.pharmacyDetails.phone && <p>Phone: {prescription.pharmacyDetails.phone}</p>}
+                      {prescription.pharmacyDetails.address && <p>Location: {prescription.pharmacyDetails.address}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
 

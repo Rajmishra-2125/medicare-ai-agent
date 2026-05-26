@@ -45,12 +45,29 @@ const getDoctorsProfiles = async () => {
 // Alias for backwards compatibility
 const getAllDoctors = getDoctorsProfiles;
 
+const searchDoctors = async (searchParams) => {
+  const queryParams = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "All" && val !== "") {
+      queryParams.append(key, val);
+    }
+  });
+  const response = await api.get(`/doctors/search?${queryParams.toString()}`);
+  return response.data.data || [];
+};
+
+const getDoctorAnalytics = async () => {
+  const response = await api.get("/doctors/analytics");
+  return response.data.data;
+};
 
 const docotrService = {
   getDoctorDetails,
   updateDoctorDetails,
   getDoctorsProfiles,
-  getAllDoctors, // Add the new function
+  getAllDoctors,
+  searchDoctors,
+  getDoctorAnalytics,
 };
 
 export default docotrService;

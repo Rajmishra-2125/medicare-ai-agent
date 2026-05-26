@@ -6,6 +6,11 @@ const PrescriptionModal = ({ isOpen, onClose, onSubmit, defaultAppointment = nul
   const [selectedAppointmentId, setSelectedAppointmentId] = useState('');
   const [medications, setMedications] = useState([{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
   const [advice, setAdvice] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [refillsRemaining, setRefillsRemaining] = useState(0);
+  const [pharmacyName, setPharmacyName] = useState('');
+  const [pharmacyPhone, setPharmacyPhone] = useState('');
+  const [pharmacyAddress, setPharmacyAddress] = useState('');
 
   useEffect(() => {
     if (defaultAppointment) {
@@ -17,6 +22,11 @@ const PrescriptionModal = ({ isOpen, onClose, onSubmit, defaultAppointment = nul
     if (isOpen) {
       setMedications([{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
       setAdvice('');
+      setExpiryDate('');
+      setRefillsRemaining(0);
+      setPharmacyName('');
+      setPharmacyPhone('');
+      setPharmacyAddress('');
     }
   }, [isOpen, defaultAppointment]);
 
@@ -55,7 +65,14 @@ const PrescriptionModal = ({ isOpen, onClose, onSubmit, defaultAppointment = nul
       appointmentId: selectedAppointmentId,
       prescription: {
         medications: validMeds,
-        advice
+        advice,
+        expiryDate: expiryDate ? new Date(expiryDate).toISOString() : undefined,
+        refillsRemaining: Number(refillsRemaining) || 0,
+        pharmacyDetails: pharmacyName ? {
+          name: pharmacyName,
+          phone: pharmacyPhone,
+          address: pharmacyAddress
+        } : undefined
       }
     });
   };
@@ -169,6 +186,62 @@ const PrescriptionModal = ({ isOpen, onClose, onSubmit, defaultAppointment = nul
                 placeholder="Any special instructions, test requests, or general guidelines for the patient..."
                 className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white text-sm outline-none resize-none"
               ></textarea>
+            </div>
+
+            {/* Premium Upgrades: Expiry Date, Refills, Pharmacy Details */}
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-6 space-y-6">
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Digital Prescription controls</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Prescription Expiration</label>
+                  <input 
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Refills Allowed</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    max="12"
+                    value={refillsRemaining}
+                    onChange={(e) => setRefillsRemaining(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pharmacy Fulfillment Details (Optional)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input 
+                    type="text"
+                    placeholder="Pharmacy Name"
+                    value={pharmacyName}
+                    onChange={(e) => setPharmacyName(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                  />
+                  <input 
+                    type="text"
+                    placeholder="Pharmacy Phone Number"
+                    value={pharmacyPhone}
+                    onChange={(e) => setPharmacyPhone(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                  />
+                </div>
+                <input 
+                  type="text"
+                  placeholder="Pharmacy Address / Store Location"
+                  value={pharmacyAddress}
+                  onChange={(e) => setPharmacyAddress(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
             </div>
 
           </div>

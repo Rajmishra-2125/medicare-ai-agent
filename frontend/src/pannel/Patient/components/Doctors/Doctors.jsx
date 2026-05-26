@@ -27,7 +27,7 @@ import {
 import DoctorReviewsModal from "./DoctorReviewsModal.jsx";
 
 import { useDispatch, useSelector } from "react-redux";
-import { getAllDoctors } from "../../../../features/doctors/DoctorSlice";
+import { getAllDoctors, searchDoctors } from "../../../../features/doctors/DoctorSlice";
 
 function Doctors() {
   const dispatch = useDispatch();
@@ -39,20 +39,40 @@ function Doctors() {
   const [selectedSpecialty, setSelectedSpecialty] = useState("All");
   const [selectedExperience, setSelectedExperience] = useState("All");
   const [selectedRating, setSelectedRating] = useState("All");
+  const [maxFee, setMaxFee] = useState(3000); // Consultation Fee Limit
+  const [city, setCity] = useState(""); // City Location Limit
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [selectedDoctorRating, setSelectedDoctorRating] = useState(null);
 
+  // Debounced server-side faceted search dispatch
   useEffect(() => {
-    if (isError) {
-      console.error(message);
-    }
-    
-    // Only dispatch if doctors data is not yet loaded
-    if (!doctors || doctors.length === 0) {
-      dispatch(getAllDoctors());
-    }
-  }, [dispatch, isError, message, doctors]);
+    let minExp = "";
+    if (selectedExperience === "0-5") minExp = "0";
+    else if (selectedExperience === "6-10") minExp = "6";
+    else if (selectedExperience === "11-15") minExp = "11";
+    else if (selectedExperience === "16+") minExp = "16";
+
+    let minRating = "";
+    if (selectedRating === "4.5+") minRating = "4.5";
+    else if (selectedRating === "4.8+") minRating = "4.8";
+    else if (selectedRating === "4.9+") minRating = "4.9";
+
+    const params = {
+      query: searchQuery,
+      specialization: selectedSpecialty === "All" ? "" : selectedSpecialty,
+      minExperience: minExp,
+      minRating: minRating,
+      maxFee: maxFee,
+      city: city,
+    };
+
+    const debounceTimer = setTimeout(() => {
+      dispatch(searchDoctors(params));
+    }, 400);
+
+    return () => clearTimeout(debounceTimer);
+  }, [dispatch, searchQuery, selectedSpecialty, selectedExperience, selectedRating, maxFee, city]);
 
   // Map backend data to frontend structure once, using useMemo for efficiency
   const mappedDoctors = useMemo(() => {
@@ -114,42 +134,16 @@ function Doctors() {
   }
 
   // Filter doctors based on search and filters
-  const filteredDoctors = mappedDoctors.filter((doctor) => {
-    const matchesSearch =
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.location.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesSpecialty =
-      selectedSpecialty === "All" || doctor.specialty === selectedSpecialty;
-
-    const matchesExperience =
-      selectedExperience === "All" ||
-      (selectedExperience === "0-5" && doctor.experience <= 5) ||
-      (selectedExperience === "6-10" &&
-        doctor.experience >= 6 &&
-        doctor.experience <= 10) ||
-      (selectedExperience === "11-15" &&
-        doctor.experience >= 11 &&
-        doctor.experience <= 15) ||
-      (selectedExperience === "16+" && doctor.experience >= 16);
-
-    const matchesRating =
-      selectedRating === "All" ||
-      (selectedRating === "4.5+" && doctor.rating >= 4.5) ||
-      (selectedRating === "4.8+" && doctor.rating >= 4.8) ||
-      (selectedRating === "4.9+" && doctor.rating >= 4.9);
-
-    return (
-      matchesSearch && matchesSpecialty && matchesExperience && matchesRating
-    );
-  });
+  // Server aggregation pipeline returns pre-filtered and formatted doctors cleanly
+  const filteredDoctors = mappedDoctors;
 
   const clearFilters = () => {
     setSelectedSpecialty("All");
     setSelectedExperience("All");
     setSelectedRating("All");
     setSearchQuery("");
+    setMaxFee(3000);
+    setCity("");
   };
 
   return (
@@ -249,12 +243,44 @@ function Doctors() {
                   <option value="4.9+">4.9+ Stars</option>
                 </select>
               </div>
+
+              {/* Consultation Fee Range */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Max Consultation Fee (₹{maxFee})
+                </label>
+                <input
+                  type="range"
+                  min="100"
+                  max="5000"
+                  step="100"
+                  value={maxFee}
+                  onChange={(e) => setMaxFee(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none"
+                />
+              </div>
+
+              {/* City Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bangalore, Delhi"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
+                />
+              </div>
             </div>
 
             {/* Active Filters and Clear */}
             {(selectedSpecialty !== "All" ||
               selectedExperience !== "All" ||
               selectedRating !== "All" ||
+              maxFee !== 3000 ||
+              city !== "" ||
               searchQuery) && (
               <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex flex-wrap gap-2">
@@ -263,7 +289,7 @@ function Doctors() {
                       {selectedSpecialty}
                       <button
                         onClick={() => setSelectedSpecialty("All")}
-                        className="hover:text-blue-900 dark:hover:text-blue-100"
+                        className="hover:text-blue-900 dark:hover:text-blue-100 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -274,7 +300,7 @@ function Doctors() {
                       {selectedExperience} years
                       <button
                         onClick={() => setSelectedExperience("All")}
-                        className="hover:text-green-900 dark:hover:text-green-100"
+                        className="hover:text-green-900 dark:hover:text-green-100 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -285,7 +311,29 @@ function Doctors() {
                       {selectedRating} Rating
                       <button
                         onClick={() => setSelectedRating("All")}
-                        className="hover:text-yellow-900 dark:hover:text-yellow-100"
+                        className="hover:text-yellow-900 dark:hover:text-yellow-100 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </span>
+                  )}
+                  {maxFee !== 3000 && (
+                    <span className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full text-sm">
+                      Max: ₹{maxFee}
+                      <button
+                        onClick={() => setMaxFee(3000)}
+                        className="hover:text-purple-900 dark:hover:text-purple-100 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </span>
+                  )}
+                  {city !== "" && (
+                    <span className="inline-flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm">
+                      City: {city}
+                      <button
+                        onClick={() => setCity("")}
+                        className="hover:text-indigo-900 dark:hover:text-indigo-100 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -294,7 +342,7 @@ function Doctors() {
                 </div>
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold cursor-pointer"
                 >
                   Clear All
                 </button>

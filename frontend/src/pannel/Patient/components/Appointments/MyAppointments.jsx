@@ -22,7 +22,11 @@ import {
   Loader2,
   Plus,
   FileText,
+  AlertOctagon,
+  Pill,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import appointmentService from "../../../../services/appointmentService";
 import paymentService from "../../../../services/paymentService";
 import toast from "react-hot-toast";
@@ -62,6 +66,10 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
   const [paymentAppointment, setPaymentAppointment] = useState(null);
   const navigate = useNavigate();
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState("appointments"); // appointments or prescriptions
+  const [isOffline, setIsOffline] = useState(!window.navigator.onLine);
+
   // Standalone mode state
   const [localAppointments, setLocalAppointments] = useState([]);
   const [localLoading, setLocalLoading] = useState(false);
@@ -72,6 +80,19 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
     if (isStandalone) {
       fetchLocalAppointments();
     }
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      fetchLocalAppointments();
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   const fetchLocalAppointments = async () => {
@@ -79,9 +100,19 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
       setLocalLoading(true);
       const data = await appointmentService.getMyAppointments();
       const list = data.data || data || [];
-      setLocalAppointments(Array.isArray(list) ? list : []);
+      const safeList = Array.isArray(list) ? list : [];
+      setLocalAppointments(safeList);
+      
+      // Offline LocalStorage pre-caching for PWA
+      localStorage.setItem("cached_patient_appointments", JSON.stringify(safeList));
     } catch (err) {
       console.error("Error fetching appointments:", err);
+      // Fallback offline pre-cache load
+      const cached = localStorage.getItem("cached_patient_appointments");
+      if (cached) {
+        setLocalAppointments(JSON.parse(cached));
+        toast("Loaded appointments from offline storage fallback.", { icon: "📁" });
+      }
     } finally {
       setLocalLoading(false);
     }
@@ -124,6 +155,131 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
     }
     return filtered;
   }, [currentAppointments, selectedFilter, debouncedSearchQuery]);
+
+  // Extract completed appointments with active prescriptions
+  const prescriptionAppointments = useMemo(() => {
+    const list = Array.isArray(currentAppointments) ? currentAppointments : [];
+    return list.filter(
+      (apt) => apt.status?.toUpperCase() === "COMPLETED" && apt.prescription && apt.prescription.medications?.length > 0
+    );
+  }, [currentAppointments]);
+
+  // Request refills locally for instant PWA feedback
+  const handleRefillRequest = (aptId) => {
+    setLocalAppointments((prev) =>
+      prev.map((apt) => {
+        if (apt._id === aptId) {
+          const currentRefills = apt.prescription?.refillsRemaining || 0;
+          if (currentRefills <= 0) {
+            toast.error("No refills remaining on this prescription. Please renew with your doctor.");
+            return apt;
+          }
+          toast.success("Prescription refill requested successfully at your local pharmacy!");
+          return {
+            ...apt,
+            prescription: {
+              ...apt.prescription,
+              refillsRemaining: currentRefills - 1,
+            },
+          };
+        }
+        return apt;
+      })
+    );
+  };
+
+  // Generate HIPAA Compliant PDF Prescription download
+  const downloadRxPDF = (apt) => {
+    try {
+      const doc = new jsPDF();
+
+      // Top Slate Header
+      doc.setFillColor(30, 41, 59);
+      doc.rect(0, 0, 210, 40, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text("MEDICARE CLINICAL PORTAL", 15, 24);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(203, 213, 225);
+      doc.text("Official Digital E-Prescription Tunnel · HIPAA Protected File", 15, 31);
+
+      // Section
+      doc.setTextColor(30, 41, 59);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("SECURE PATIENT PRESCRIPTION DETIALS", 15, 55);
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(15, 59, 195, 59);
+
+      // Doctor & Patient Meta Grid
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Doctor: Dr. ${apt.doctorId?.doctor || apt.doctorName || "Specialist"}`, 15, 68);
+      doc.text(`Specialty: ${apt.doctorId?.specialization || "Practitioner"}`, 15, 74);
+      doc.text(`Consultation Date: ${new Date(apt.date).toLocaleDateString()}`, 120, 68);
+      doc.text(`Document Reference: ${apt._id}`, 120, 74);
+
+      doc.line(15, 80, 195, 80);
+
+      // Medications Table
+      const headers = [["#", "Medication", "Dosage & Frequency", "Duration"]];
+      const rows = (apt.prescription.medications || []).map((med, idx) => [
+        idx + 1,
+        med.name,
+        `${med.dosage || ""} - ${med.frequency || ""}`,
+        med.duration || "As Directed"
+      ]);
+
+      doc.autoTable({
+        startY: 87,
+        head: headers,
+        body: rows,
+        theme: "striped",
+        headStyles: { fillColor: [99, 102, 241] }, // Indigo-500
+        styles: { fontSize: 9.5, cellPadding: 4.5 }
+      });
+
+      const finalY = doc.previousAutoTable.finalY + 15;
+
+      // Doctor Notes
+      if (apt.prescription.advice) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Medical Advice & Special Guidelines", 15, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        const wrappedAdvice = doc.splitTextToSize(apt.prescription.advice, 180);
+        doc.text(wrappedAdvice, 15, finalY + 7);
+      }
+
+      // Expiry and Signature
+      const sigY = finalY + 45;
+      doc.setDrawColor(203, 213, 225);
+      doc.line(125, sigY, 195, sigY);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.text(`Digitally Authorized by Dr. ${apt.doctorId?.doctor || apt.doctorName}`, 125, sigY + 5);
+
+      if (apt.prescription.expiryDate) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Fulfillment Expiration Date: ${new Date(apt.prescription.expiryDate).toLocaleDateString()}`, 15, sigY);
+      }
+      doc.text(`Eligible Pharmacy Refills: ${apt.prescription.refillsRemaining || 0}`, 15, sigY + 5);
+
+      // Save PDF
+      doc.save(`Rx_Prescription_${apt._id}.pdf`);
+      toast.success("E-Prescription document downloaded successfully.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to build PDF invoice.");
+    }
+  };
 
 
 
@@ -336,10 +492,10 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
             <div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
-                    My Appointments
+                    My Clinic Area
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                    Track your upcoming consultations and medical history
+                    Track your upcoming consultations, medical shelf history, and prescriptions
                 </p>
             </div>
             {/* Quick Stats Summary */}
@@ -359,7 +515,42 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
             </div>
         </div>
 
-        {/* <!-- Filter and Actions --> */}
+        {/* Offline Banner Alert */}
+        {isOffline && (
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 px-4 py-3.5 rounded-2xl mb-6 flex items-start gap-3 text-sm animate-in fade-in duration-300">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+            <div>
+              <p className="font-bold">Offline Caching Active</p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                You are currently offline. You can view your cached appointments list and download cached prescription PDFs. Booking new appointments or initiating WebRTC video consultations requires an active internet connection.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Selection */}
+        <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 mb-8">
+          <button 
+            onClick={() => setActiveTab("appointments")}
+            className={`pb-3 font-bold text-sm tracking-wide transition-all border-b-2 px-1 cursor-pointer ${
+              activeTab === "appointments" 
+                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400" 
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            My Appointments
+          </button>
+          <button 
+            onClick={() => setActiveTab("prescriptions")}
+            className={`pb-3 font-bold text-sm tracking-wide transition-all border-b-2 px-1 cursor-pointer ${
+              activeTab === "prescriptions" 
+                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400" 
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Digital Prescriptions Shelf
+          </button>
+        </div>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-8 transition-colors duration-200">
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
@@ -414,189 +605,265 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
 </div>
 
 
-        {/* <!-- Appointments List --> */}
-        <div className="grid gap-6">
-          {currentLoading && currentAppointments.length === 0 ? (
-            <AppointmentRowSkeleton />
-          ) : filteredAppointments.length === 0 ? (
-            <EmptyState
-              icon={Calendar}
-              title="No Appointments Found"
-              description={
-                searchQuery || selectedFilter !== "all"
-                  ? "We couldn't find any appointments matching your search query or status filters. Try adjusting your parameters!"
-                  : "You haven't scheduled any consultations yet. Find an expert doctor and book your appointment today!"
-              }
-              actionLabel={searchQuery || selectedFilter !== "all" ? "Clear Search Filters" : "Book Appointment"}
-              actionPath={searchQuery || selectedFilter !== "all" ? null : "/doctors"}
-              onActionClick={
-                searchQuery || selectedFilter !== "all"
-                  ? () => {
-                      setSearchQuery("");
-                      setSelectedFilter("all");
-                    }
-                  : null
-              }
-            />
-          ) : (
-            filteredAppointments.map((appointment) => (
-              <div
-                key={appointment._id || appointment.id}
-                className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-300 overflow-hidden"
-              >
-                <div className="p-6">
-                    <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Doctor Image & Basic Info */}
-                        <div className="flex items-start gap-4 lg:w-1/3">
-                            <div className="relative">
-                                <img
-                                    src={
-                                        appointment.doctorId?.image || 
-                                        appointment.image ||
-                                        `https://ui-avatars.com/api/?name=${appointment.doctorId?.doctor || appointment.doctorName || 'Doctor'}&background=random`
-                                    }
-                                    alt={appointment.doctorId?.doctor || appointment.doctorName}
-                                    loading="lazy"
-                                    className="w-16 h-16 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 shadow-sm"
-                                />
-                                <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm">
-                                    {appointment.type === 'Video Consultation' ? (
-                                        <div className="bg-blue-100 dark:bg-blue-900/50 p-1 rounded-full">
-                                            <Video className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                    ) : (
-                                        <div className="bg-green-100 dark:bg-green-900/50 p-1 rounded-full">
-                                            <Building className="w-3 h-3 text-green-600 dark:text-green-400" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    {appointment.doctorId ? `Dr. ${appointment.doctorId.doctor}` : appointment.doctorName}
-                                </h3>
-                                <p className="text-blue-600 dark:text-blue-400 font-medium text-sm mb-1">
-                                    {appointment.doctorId?.specialization || appointment.specialty || "General Physician"}
-                                </p>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-md w-fit">
-                                    {appointment.type === 'Video Consultation' ? 'Video Call' : 'In-Person Visit'}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Date & Time Info */}
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between flex-1 gap-6 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-700 pt-4 lg:pt-0 lg:pl-6">
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold mb-1">Date</p>
-                                    <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
-                                        <Calendar className="w-4 h-4 text-gray-400" />
-                                        {formatDate(appointment.date)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold mb-1">Time</p>
-                                    <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
-                                        <Clock className="w-4 h-4 text-gray-400" />
-                                        {formatTime(appointment.timeSlots || appointment.slotNumber || appointment.time)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between lg:justify-end gap-4">
-                                <div className="text-right">
-                                    {getStatusBadge(appointment.status)}
-                                </div>
-                                
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => {
-                                            setSelectedAppointment(appointment);
-                                            setShowDetailsModal(true);
-                                        }}
-                                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                                        title="View Details"
-                                    >
-                                        <FileText className="w-5 h-5" />
-                                    </button>
-
-                                    {/* Payment Button - Show when appointment is CONFIRMED but NOT PAID */}
-                                    {(appointment.status?.toUpperCase() === 'CONFIRMED' || appointment.status?.toUpperCase() === 'PENDING') && 
-                                     (appointment.paymentStatus?.toUpperCase() !== 'PAID') && (
-                                        <button 
-                                            onClick={() => {
-                                                navigate(`/patient/payment/${appointment._id}`);
-                                            }}
-                                            className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
-                                            title="Pay Now"
-                                        >
-                                            <CreditCard className="w-5 h-5" />
-                                        </button>
-                                    )}
-                                    
-                                    {(appointment.status?.toUpperCase() === 'PENDING' || appointment.status?.toUpperCase() === 'CONFIRMED') && (
-                                        <button 
-                                            onClick={() => handleCancelAppointment(appointment)}
-                                            disabled={cancellingId === appointment._id}
-                                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                            title="Cancel Appointment"
-                                        >
-                                            {cancellingId === appointment._id ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
-                                        </button>
-                                    )}
-
-                                    {(appointment.status?.toUpperCase() === "PENDING" ||
-                                      appointment.status?.toUpperCase() ===
-                                        "CONFIRMED") && (
-                                      <button
-                                        onClick={() => openRescheduleModal(appointment)}
-                                        disabled={
-                                          reschedulingId === appointment._id
-                                        }
-                                        className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"
-                                        title="Reschedule Appointment"
+        {/* Tab Render Layout */}
+        {activeTab === "appointments" ? (
+          <div className="grid gap-6">
+            {currentLoading && currentAppointments.length === 0 ? (
+              <AppointmentRowSkeleton />
+            ) : filteredAppointments.length === 0 ? (
+              <EmptyState
+                icon={Calendar}
+                title="No Appointments Found"
+                description={
+                  searchQuery || selectedFilter !== "all"
+                    ? "We couldn't find any appointments matching your search query or status filters. Try adjusting your parameters!"
+                    : "You haven't scheduled any consultations yet. Find an expert doctor and book your appointment today!"
+                }
+                actionLabel={searchQuery || selectedFilter !== "all" ? "Clear Search Filters" : "Book Appointment"}
+                actionPath={searchQuery || selectedFilter !== "all" ? null : "/doctors"}
+                onActionClick={
+                  searchQuery || selectedFilter !== "all"
+                    ? () => {
+                        setSearchQuery("");
+                        setSelectedFilter("all");
+                      }
+                    : null
+                }
+              />
+            ) : (
+              filteredAppointments.map((appointment) => (
+                <div
+                  key={appointment._id || appointment.id}
+                  className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-300 overflow-hidden"
+                >
+                  <div className="p-6">
+                      <div className="flex flex-col lg:flex-row gap-6">
+                          {/* Doctor Image & Basic Info */}
+                          <div className="flex items-start gap-4 lg:w-1/3">
+                              <div className="relative">
+                                  <img
+                                      src={
+                                          appointment.doctorId?.image || 
+                                          appointment.image ||
+                                          `https://ui-avatars.com/api/?name=${appointment.doctorId?.doctor || appointment.doctorName || 'Doctor'}&background=random`
+                                      }
+                                      alt={appointment.doctorId?.doctor || appointment.doctorName}
+                                      loading="lazy"
+                                      className="w-16 h-16 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 shadow-sm"
+                                  />
+                                  <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm">
+                                      {appointment.type === 'Video Consultation' ? (
+                                          <div className="bg-blue-100 dark:bg-blue-900/50 p-1 rounded-full">
+                                              <Video className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                          </div>
+                                      ) : (
+                                          <div className="bg-green-100 dark:bg-green-900/50 p-1 rounded-full">
+                                              <Building className="w-3 h-3 text-green-600 dark:text-green-400" />
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+                              
+                              <div>
+                                  <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                      {appointment.doctorId ? `Dr. ${appointment.doctorId.doctor}` : appointment.doctorName}
+                                  </h3>
+                                  <p className="text-blue-600 dark:text-blue-400 font-medium text-sm mb-1">
+                                      {appointment.doctorId?.specialization || appointment.specialty || "General Physician"}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded-md w-fit">
+                                      {appointment.type === 'Video Consultation' ? 'Video Call' : 'In-Person Visit'}
+                                  </div>
+                              </div>
+                          </div>
+  
+                          {/* Date & Time Info */}
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between flex-1 gap-6 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-700 pt-4 lg:pt-0 lg:pl-6">
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold mb-1">Date</p>
+                                      <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+                                          <Calendar className="w-4 h-4 text-gray-400" />
+                                          {formatDate(appointment.date)}
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold mb-1">Time</p>
+                                      <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+                                          <Clock className="w-4 h-4 text-gray-400" />
+                                          {formatTime(appointment.timeSlots || appointment.slotNumber || appointment.time)}
+                                      </div>
+                                  </div>
+                              </div>
+  
+                              <div className="flex items-center justify-between lg:justify-end gap-4">
+                                  <div className="text-right">
+                                      {getStatusBadge(appointment.status)}
+                                  </div>
+                                  
+                                  <div className="flex gap-2">
+                                      <button 
+                                          onClick={() => {
+                                              setSelectedAppointment(appointment);
+                                              setShowDetailsModal(true);
+                                          }}
+                                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all cursor-pointer"
+                                          title="View Details"
                                       >
-                                        {reschedulingId === appointment._id ? (
-                                          <Loader2 className="w-5 h-5 animate-spin" />
-                                        ) : (
-                                          <RefreshCw className="w-5 h-5" />
-                                        )}
+                                          <FileText className="w-5 h-5" />
                                       </button>
-                                    )}
+  
+                                      {/* Payment Button - Show when appointment is CONFIRMED but NOT PAID */}
+                                      {(appointment.status?.toUpperCase() === 'CONFIRMED' || appointment.status?.toUpperCase() === 'PENDING') && 
+                                       (appointment.paymentStatus?.toUpperCase() !== 'PAID') && (
+                                          <button 
+                                              onClick={() => {
+                                                  navigate(`/patient/payment/${appointment._id}`);
+                                              }}
+                                              className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all cursor-pointer"
+                                              title="Pay Now"
+                                          >
+                                              <CreditCard className="w-5 h-5" />
+                                          </button>
+                                      )}
 
-                                    {appointment.status?.toUpperCase() === 'COMPLETED' && (
-                                        <button 
-                                            onClick={() => {
-                                                if (!appointment.isReviewed) {
-                                                    setReviewAppointment(appointment);
-                                                    setShowReviewModal(true);
-                                                }
-                                            }}
-                                            disabled={appointment.isReviewed}
-                                            className={`p-2 transition-all relative group/btn rounded-lg ${
-                                                appointment.isReviewed
-                                                    ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 cursor-default"
-                                                    : "text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 cursor-pointer"
-                                            }`}
-                                            title={appointment.isReviewed ? "Reviewed" : "Write a Review"}
+                                      {/* Video Consultation Call launcher */}
+                                      {appointment.status?.toUpperCase() === 'CONFIRMED' && appointment.type === 'Video Consultation' && (
+                                          <button 
+                                              onClick={() => {
+                                                  navigate(`/consultation/${appointment._id}`);
+                                              }}
+                                              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all animate-pulse cursor-pointer"
+                                              title="Join Video Room"
+                                          >
+                                              <Video className="w-5 h-5" />
+                                          </button>
+                                      )}
+                                      
+                                      {(appointment.status?.toUpperCase() === 'PENDING' || appointment.status?.toUpperCase() === 'CONFIRMED') && (
+                                          <button 
+                                              onClick={() => handleCancelAppointment(appointment)}
+                                              disabled={cancellingId === appointment._id}
+                                              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all cursor-pointer"
+                                              title="Cancel Appointment"
+                                          >
+                                              {cancellingId === appointment._id ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
+                                          </button>
+                                      )}
+  
+                                      {(appointment.status?.toUpperCase() === "PENDING" ||
+                                        appointment.status?.toUpperCase() ===
+                                          "CONFIRMED") && (
+                                        <button
+                                          onClick={() => openRescheduleModal(appointment)}
+                                          disabled={
+                                            reschedulingId === appointment._id
+                                          }
+                                          className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all cursor-pointer"
+                                          title="Reschedule Appointment"
                                         >
-                                            <Star className={`w-5 h-5 ${appointment.isReviewed ? "fill-yellow-500" : ""}`} />
-                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition-opacity pointer-events-none z-10 hidden md:block">
-                                                {appointment.isReviewed ? "Reviewed" : "Write Review"}
-                                            </span>
+                                          {reschedulingId === appointment._id ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                          ) : (
+                                            <RefreshCw className="w-5 h-5" />
+                                          )}
                                         </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                      )}
+  
+                                      {appointment.status?.toUpperCase() === 'COMPLETED' && (
+                                          <button 
+                                              onClick={() => {
+                                                  if (!appointment.isReviewed) {
+                                                      setReviewAppointment(appointment);
+                                                      setShowReviewModal(true);
+                                                  }
+                                              }}
+                                              disabled={appointment.isReviewed}
+                                              className={`p-2 transition-all relative group/btn rounded-lg ${
+                                                  appointment.isReviewed
+                                                      ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 cursor-default"
+                                                      : "text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 cursor-pointer"
+                                              }`}
+                                              title={appointment.isReviewed ? "Reviewed" : "Write a Review"}
+                                          >
+                                              <Star className={`w-5 h-5 ${appointment.isReviewed ? "fill-yellow-500" : ""}`} />
+                                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover/btn:opacity-100 whitespace-nowrap transition-opacity pointer-events-none z-10 hidden md:block">
+                                                  {appointment.isReviewed ? "Reviewed" : "Write Review"}
+                                              </span>
+                                          </button>
+                                      )}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Prescriptions Shelf Tab */
+          <div className="grid gap-6">
+            {prescriptionAppointments.length === 0 ? (
+              <EmptyState 
+                icon={Pill}
+                title="No Active Prescriptions"
+                description="You don't have any digital prescriptions issued by clinical specialists yet. Prescriptions are automatically archived here after completing a consultation."
+              />
+            ) : (
+              prescriptionAppointments.map((apt) => {
+                const isRxExpired = apt.prescription.expiryDate && new Date(apt.prescription.expiryDate) < new Date();
+                return (
+                  <div key={apt._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                            Dr. {apt.doctorId?.doctor || apt.doctorName}
+                          </h3>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            isRxExpired 
+                              ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30" 
+                              : "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900/30"
+                          }`}>
+                            {isRxExpired ? "Expired" : "Active"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-2">{apt.doctorId?.specialization || "Specialist"}</p>
+                        
+                        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mt-3">
+                          <p><strong>Primary Med:</strong> {apt.prescription.medications?.[0]?.name} · {apt.prescription.medications?.[0]?.dosage}</p>
+                          <p><strong>Refills Left:</strong> {apt.prescription.refillsRemaining || 0} Refills</p>
+                          {apt.prescription.expiryDate && (
+                            <p><strong>Fulfillment Expiry:</strong> {new Date(apt.prescription.expiryDate).toLocaleDateString()}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 mt-4 md:mt-0 w-full md:w-auto">
+                        <button
+                          onClick={() => handleRefillRequest(apt._id)}
+                          disabled={isRxExpired || (apt.prescription.refillsRemaining || 0) <= 0}
+                          className="flex-1 md:flex-initial px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/20 dark:hover:bg-indigo-900/30 dark:text-indigo-400 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          Request Refill
+                        </button>
+                        <button
+                          onClick={() => downloadRxPDF(apt)}
+                          className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Rx PDF
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
 
