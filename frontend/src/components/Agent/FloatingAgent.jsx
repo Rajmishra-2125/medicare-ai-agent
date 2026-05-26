@@ -48,12 +48,17 @@ const FloatingAgent = () => {
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://medicare-healthcare-app.onrender.com/api/v1';
+      const token = localStorage.getItem("accessToken");
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       
       const response = await fetch(`${apiUrl}/agent/chat`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ message: userMsg }),
         credentials: "include", // Automatically send HttpOnly accessToken cookie
       });
