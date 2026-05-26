@@ -26,7 +26,7 @@ import {
   Pill,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import appointmentService from "../../../../services/appointmentService";
 import paymentService from "../../../../services/paymentService";
 import toast from "react-hot-toast";
@@ -235,7 +235,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         med.duration || "As Directed"
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 87,
         head: headers,
         body: rows,
