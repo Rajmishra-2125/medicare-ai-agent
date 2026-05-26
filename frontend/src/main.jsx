@@ -40,6 +40,7 @@ const EmailVerification = lazy(
 const PrivacyPolicy = lazy(() => import("./components/Legal/PrivacyPolicy.jsx"));
 const TermsOfService = lazy(() => import("./components/Legal/TermsOfService.jsx"));
 const CookiePolicy = lazy(() => import("./components/Legal/CookiePolicy.jsx"));
+const ConsultationWorkspace = lazy(() => import("./components/Consultation/ConsultationWorkspace.jsx"));
 
 // Lazy Loaded Role Apps
 const AdminApp = lazy(() => import("./pannel/Admin/AdminApp"));
@@ -75,6 +76,9 @@ const router = createBrowserRouter(
       </Route>
       <Route element={<ProtectedRoute allowedRoles={["PATIENT"]} />}>
         <Route path="patient/*" element={<PatientApp />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={["DOCTOR", "PATIENT"]} />}>
+        <Route path="consultation/:roomId" element={<ConsultationWorkspace />} />
       </Route>
       {/* Catch-all 404 Route */}
       <Route path="*" element={<NotFound />} />
@@ -126,3 +130,18 @@ createRoot(document.getElementById("root")).render(
     </Provider>
   </StrictMode>,
 );
+
+// Register PWA Service Worker for offline capabilities
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        console.log("Service Worker registered successfully with scope:", reg.scope);
+      })
+      .catch((err) => {
+        console.error("Service Worker registration failed:", err);
+      });
+  });
+}
+
