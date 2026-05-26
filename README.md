@@ -13,6 +13,32 @@ The application is deployed and running live on:
 
 ---
 
+## 🎬 User Flow Screenshots
+
+Here is a visual preview of the Patient and AI Agent experience on MediCare:
+
+### 1. Hero & Dynamic Home Page
+An elegant, modern home page highlighting real-time dynamic doctor statistics, patient counts, average ratings, and direct pathways to the AI Assistant.
+![Home Page](docs/screenshots/home_page.png)
+
+### 2. Verified Doctors Directory
+Search and filter on-staff medical experts dynamically by specialty, ratings, experience, and consultation fees.
+![Doctors List](docs/screenshots/doctors_list.png)
+
+### 3. Patient Authentication Portal
+Secure access to patients and doctors with JWT token refresh flows and role-based route protection.
+![Login Page](docs/screenshots/login_page.png)
+
+### 4. Interactive Time Slot Booking
+Guided, timezone-aware appointment scheduler showing available slots in Indian Standard Time (IST) for seamless booking.
+![Appointment Booking](docs/screenshots/appointment_booking.png)
+
+### 5. Persistent MediBot Chat Assistant
+A persistent, context-aware AI chatbot widget that follows the patient across pages to assist with doctor discovery and step-by-step slot bookings in real-time.
+![MediBot Chat](docs/screenshots/medibot_chat.png)
+
+---
+
 ## ✨ Key Features
 
 ### 👨‍⚕️ For Patients
