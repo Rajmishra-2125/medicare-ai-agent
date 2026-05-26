@@ -234,7 +234,7 @@ const getAvailableSlots = async ({ doctorName, dateStr }) => {
 
 const bookAppointment = async (
   patientId,
-  { doctorName, date, time, reason }
+  { doctorName, date, time, reason, meetingType }
 ) => {
   try {
     const sanitizedName = doctorName.replace(/^Dr\.?\s*/i, "").trim();
@@ -303,6 +303,7 @@ const bookAppointment = async (
       reason: reason || "General Consultation via AI Assistant",
       status: "PENDING",
       consultationFee: doctor.consultationFee,
+      meetingType: meetingType || "IN_PERSON",
     });
 
     // Mark slot as booked
@@ -403,8 +404,13 @@ const systemTools = [
               description:
                 "Patient's description of their symptoms or reason for visit",
             },
+            meetingType: {
+              type: SchemaType.STRING,
+              description:
+                "The user's preferred meeting type: 'ONLINE' for Video Call or 'IN_PERSON' for traditional clinic visits",
+            },
           },
-          required: ["doctorName", "date", "time", "reason"],
+          required: ["doctorName", "date", "time", "reason", "meetingType"],
         },
       },
     ],
@@ -463,7 +469,7 @@ PERSONA: Compassionate, concise, and professional. Never mention internal tool n
 STRICT RULES FOR TOOL USE:
 1. search_doctors → Pass only the bare name (no "Dr." prefix) e.g. "Raj Mishra" not "Dr.Raj".
 2. get_available_slots → Use the EXACT full doctor name returned from search_doctors result (e.g., "Dr. Raj Mishra").
-3. book_appointment → ALWAYS confirm the exact date and time with the patient before booking. Pass the exact "date" and "time" strings returned from get_available_slots into this tool!
+3. book_appointment → ALWAYS ask the patient for their preferred meeting type (Online Video Call vs. In-Person Visit) and confirm the exact date and time with the patient before booking. You must pass the exact "date" and "time" strings returned by get_available_slots, and pass the selected "meetingType" ('ONLINE' for Video Call, 'IN_PERSON' for In-Person visit) into this tool!
 4. location → NEVER ask the user for a location or city. We operate a single-location hospital. Ignore location parameters.
 
 CONVERSATION FLOW:
