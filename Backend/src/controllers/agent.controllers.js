@@ -410,7 +410,7 @@ export const handleAgentChat = asyncHandler(async (req, res) => {
       async (genAI) => {
         // Define the base model prompt configuring its persona
         const model = genAI.getGenerativeModel({
-          model: "gemini-3.1-flash-lite-preview",
+          model: "gemini-1.5-flash",
           systemInstruction: `You are MediBot, an AI appointment assistant for our hospital portal.
 CRITICAL CONTEXT: Today is ${readableDate} (YYYY-MM-DD: ${isoDate}). When a user requests slots for 'today', 'tomorrow', or any relative day, you MUST mathematically calculate the correct YYYY-MM-DD date using this real-time calendar and explicitly pass it as the "dateStr" parameter to get_available_slots!
 

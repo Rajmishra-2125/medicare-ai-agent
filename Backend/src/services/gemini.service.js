@@ -5,7 +5,7 @@ class GeminiService {
   constructor() {
     this.keys = [];
     this.currentKeyIndex = 0;
-    this.modelName = "gemini-3.1-flash-lite-preview";
+    this.modelName = "gemini-1.5-flash";
 
     // Bottleneck logic: Only allow 2 requests per second
     this.limiter = new Bottleneck({
