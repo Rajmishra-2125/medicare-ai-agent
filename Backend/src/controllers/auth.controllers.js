@@ -12,6 +12,8 @@ import mongoose, { set } from "mongoose";
 import { Doctor } from "../models/doctor.models.js";
 import { generatePatientId } from "../utils/idGenerators.js";
 import { OAuth2Client } from "google-auth-library";
+import { escapeHTML } from "../utils/sanitize.js";
+import { createUserAccount } from "../services/userService.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { OTP } from "../models/otp.models.js";
 
@@ -230,7 +232,7 @@ const loginUser = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser, accessToken, refreshToken },
+        { user: loggedInUser },
         "User loggedIn successfully"
       )
     );
@@ -282,7 +284,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { accessToken, refreshToken: refreshToken },
+          {},
           "access token is refreshed"
         )
       );
@@ -349,14 +351,11 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
     );
 
     if (!user) {
-      const patientId = await generatePatientId();
-      user = await User.create({
+      user = await createUserAccount({
         fullname: name,
         email: normalizedEmail,
         authProvider: "GOOGLE",
         googleId,
-        patientId,
-        role: "PATIENT",
         profileImage: picture || "",
         isEmailVerified: true,
       });
@@ -383,7 +382,7 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { user: loggedInUser, accessToken, refreshToken },
+          { user: loggedInUser },
           "Google OAuth login successful"
         )
       );
@@ -449,31 +448,30 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
   // Delete OTP once verified
   await OTP.deleteOne({ email: normalizedEmail });
 
-  const patientId = await generatePatientId();
   let user;
 
   try {
-    console.log("Creating user with data:", {
-      fullname,
+    const escapedName = escapeHTML(fullname);
+    console.log("Creating user via service with data:", {
+      fullname: escapedName,
       email: normalizedEmail,
       gender,
-      patientId,
       role: "PATIENT",
       phone,
       dateOfBirth: DOB,
       isEmailVerified: true,
     });
-    user = await User.create({
-      fullname,
+    
+    user = await createUserAccount({
+      fullname: escapedName,
       email: normalizedEmail,
       gender,
       password,
-      patientId,
-      role: "PATIENT",
       phone,
       dateOfBirth: DOB,
       isEmailVerified: true,
     });
+    
     console.log("User created successfully:", user._id);
 
     // Send Welcome Email asynchronously
@@ -482,7 +480,7 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
         email: normalizedEmail,
         subject: "Welcome to MediCare!",
         message: `<h1>Your Account is Verified!</h1>
-                  <p>Hi ${fullname}, welcome to MediCare. You can now book appointments and manage your health seamlessly.</p>`,
+                  <p>Hi ${escapedName}, welcome to MediCare. You can now book appointments and manage your health seamlessly.</p>`,
       });
     } catch (welcomeErr) {
       console.log("Failed to send welcome email", welcomeErr);
@@ -515,7 +513,7 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser, accessToken, refreshToken },
+        { user: loggedInUser },
         "Email verified and login successful"
       )
     );
