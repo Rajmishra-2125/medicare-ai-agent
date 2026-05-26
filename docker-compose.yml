@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - MONGODB_URI=mongodb://mongo:27017/medicare
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=http://localhost:5173
+      - ACCESS_TOKEN_SECRET=some_super_secret_access_token_key_12345!
+      - REFRESH_TOKEN_SECRET=some_super_secret_refresh_token_key_12345!
+      - CASHFREE_ENVIRONMENT=SANDBOX
+      - CASHFREE_APP_ID=mock_app_id
+      - CASHFREE_SECRET_KEY=mock_secret_key
+      - GEMINI_API_KEYS=mock_gemini_api_key
+    depends_on:
+      - mongo
+      - redis
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: always
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+
+volumes:
+  mongo-data:
+  redis-data:

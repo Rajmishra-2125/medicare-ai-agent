@@ -15,5 +15,9 @@ COPY . .
 # Expose the API port
 EXPOSE 8000
 
+# Healthcheck to verify server is active and responding correctly
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8000/api/v1/healthcheck || exit 1
+
 # Start the application using Node (or PM2 if installed globally in the container)
 CMD ["npm", "run", "start"]
