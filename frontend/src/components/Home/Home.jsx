@@ -42,13 +42,63 @@ function Home() {
     }
   }, [dispatch, doctors]);
 
-  // Stats data
-  const stats = [
-    { icon: Users, number: "10,000+", label: "Happy Patients" },
-    { icon: Stethoscope, number: "50+", label: "Expert Doctors" },
-    { icon: Award, number: "15+", label: "Years Experience" },
-    { icon: Star, number: "4.9", label: "Average Rating" },
-  ];
+  // Dynamic Stats calculations based on database doctors
+  const stats = useMemo(() => {
+    const defaultStats = [
+      { icon: Users, number: "10,000+", label: "Happy Patients" },
+      { icon: Stethoscope, number: "50+", label: "Expert Doctors" },
+      { icon: Award, number: "15+", label: "Years Experience" },
+      { icon: Star, number: "4.9", label: "Average Rating" },
+    ];
+
+    if (!doctors || !Array.isArray(doctors) || doctors.length === 0) {
+      return defaultStats;
+    }
+
+    const doctorCount = doctors.length;
+
+    // Sum of patients across all doctors
+    const patientSum = doctors.reduce(
+      (acc, doc) => acc + (doc.totalAppointments || doc.reviewCount || 0),
+      0
+    );
+
+    // Sum of experience across all doctors
+    const experienceSum = doctors.reduce(
+      (acc, doc) => acc + (parseInt(doc.experience) || 0),
+      0
+    );
+
+    // Average rating across all doctors
+    const ratingSum = doctors.reduce(
+      (acc, doc) => acc + (parseFloat(doc.rating) || 0),
+      0
+    );
+    const ratingAvg = ratingSum > 0 ? (ratingSum / doctorCount).toFixed(1) : "0.0";
+
+    return [
+      {
+        icon: Users,
+        number: patientSum > 0 ? `${patientSum.toLocaleString()}+` : `${(doctorCount * 25)}+`,
+        label: "Happy Patients",
+      },
+      {
+        icon: Stethoscope,
+        number: `${doctorCount}+`,
+        label: "Expert Doctors",
+      },
+      {
+        icon: Award,
+        number: experienceSum > 0 ? `${experienceSum}+` : "15+",
+        label: "Years Experience",
+      },
+      {
+        icon: Star,
+        number: ratingAvg !== "0.0" ? ratingAvg : "4.9",
+        label: "Average Rating",
+      },
+    ];
+  }, [doctors]);
 
   // AI Agent Features
   const aiFeatures = [
@@ -267,17 +317,25 @@ function Home() {
       <section className="py-12 bg-gray-50 dark:bg-gray-900 border-y dark:border-gray-800 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full mb-3">
-                  <stat.icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                  {stat.number}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400">{stat.label}</p>
-              </div>
-            ))}
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="text-center flex flex-col items-center">
+                    <Skeleton className="w-12 h-12 rounded-full mb-3" />
+                    <Skeleton className="h-8 w-20 mb-2 animate-pulse" />
+                    <Skeleton className="h-4 w-28 animate-pulse" />
+                  </div>
+                ))
+              : stats.map((stat, index) => (
+                  <div key={index} className="text-center">
+                    <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full mb-3">
+                      <stat.icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                      {stat.number}
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">{stat.label}</p>
+                  </div>
+                ))}
           </div>
         </div>
       </section>
