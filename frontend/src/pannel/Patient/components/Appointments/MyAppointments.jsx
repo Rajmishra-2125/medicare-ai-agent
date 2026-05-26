@@ -235,7 +235,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         med.duration || "As Directed"
       ]);
 
-      autoTable(doc, {
+      const table = autoTable(doc, {
         startY: 87,
         head: headers,
         body: rows,
@@ -244,7 +244,7 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         styles: { fontSize: 9.5, cellPadding: 4.5 }
       });
 
-      const finalY = doc.previousAutoTable.finalY + 15;
+      const finalY = (table?.finalY || 150) + 15;
 
       // Doctor Notes
       if (apt.prescription.advice) {
