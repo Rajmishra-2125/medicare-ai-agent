@@ -1,6 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import redisClient from "../config/redis.js";
 import { Slot } from "../models/slots.models.js";
 import { Doctor } from "../models/doctor.models.js";
 import { Appointment } from "../models/appointment.models.js";
@@ -27,7 +28,8 @@ const myAppointments = asyncHandler(async (req, res) => {
       },
     })
     .populate("slotId", "slotNumber date timeSlots status")
-    .sort({ date: -1 });
+    .sort({ date: -1 })
+    .lean();
 
   return res
     .status(200)
@@ -54,7 +56,8 @@ const getDoctorAppointments = asyncHandler(async (req, res) => {
   const appointments = await Appointment.find({ doctorId: doctorProfile._id })
     .populate("patientId", "fullname profileImage gender age phone email")
     .populate("slotId", "slotNumber date timeSlots status")
-    .sort({ date: -1 });
+    .sort({ date: -1 })
+    .lean();
 
   return res
     .status(200)
@@ -97,7 +100,8 @@ const getAppointmentDetailsBySlotId = asyncHandler(async (req, res) => {
         select: "profileImage",
       },
     })
-    .populate("slotId", "slotNumber date timeSlots status");
+    .populate("slotId", "slotNumber date timeSlots status")
+    .lean();
 
   if (!appointment) {
     throw new ApiError(404, "Appointment not found for this Slot");
@@ -138,12 +142,27 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
 
   const doctor = await Doctor.findOne({
     doctor: { $regex: new RegExp("^" + username + "$", "i") },
-  }).setOptions({ includeInactive: true });
+  })
+    .setOptions({ includeInactive: true })
+    .lean();
   if (!doctor) {
     throw new ApiError(404, "Doctor doesn't exists");
   }
 
   const doctorId = doctor._id; // Correct: Use Doctor Document ID
+
+  // Check Redis Cache
+  const cacheKey = `slots:${doctorId.toString()}:${queryDate.toISOString().split("T")[0]}`;
+  if (redisClient && redisClient.isOpen) {
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch (err) {
+      console.warn("⚠️ Slot cache get error:", err);
+    }
+  }
 
   console.log("DoctorId is:", doctorId);
   console.log("Input Date:", date);
@@ -154,13 +173,24 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
     doctorId: doctorId,
     date: queryDate,
     status: "AVAILABLE",
-  });
+  }).lean();
 
   if (!slots) {
     throw new ApiError(404, "Slot is not available today");
   }
 
-  return res.status(200).json(new ApiResponse(200, slots, "Slot is available"));
+  const responsePayload = new ApiResponse(200, slots, "Slot is available");
+
+  // Save to Redis Cache
+  if (redisClient && redisClient.isOpen && slots.length > 0) {
+    try {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(responsePayload)); // Cache for 5 minutes
+    } catch (err) {
+      console.error("⚠️ Slot cache set error:", err);
+    }
+  }
+
+  return res.status(200).json(responsePayload);
 });
 
 // Applying for booking an appointment
