@@ -650,7 +650,7 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
 // Reschedule appointment
 const rescheduleAppointment = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
-  const { newDate, newSlotNumber, reason } = req.body;
+  const { newDate, newSlotNumber, reason, meetingType } = req.body;
   const userId = req.user?._id;
 
   if (!newDate || !newSlotNumber) {
@@ -753,6 +753,10 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
   appointment.status = "RESCHEDULED";
   appointment.rescheduleAt = new Date();
   appointment.rescheduleReason = reason || "User requested reschedule";
+  
+  if (meetingType) {
+    appointment.meetingType = meetingType;
+  }
 
   await appointment.save();
 
