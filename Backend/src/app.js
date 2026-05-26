@@ -6,6 +6,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
 
 // CORS
 const allowedOrigins = [
@@ -93,6 +95,7 @@ import paymentRouter from "./routes/payment.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
 
 // routes
+app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/auth", authRouter);

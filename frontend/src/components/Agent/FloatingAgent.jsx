@@ -43,7 +43,7 @@ const FloatingAgent = () => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-95 h-150 max-h-[85vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-gray-100 dark:border-slate-800 animate-in slide-in-from-bottom-5">
+    <div className="fixed bottom-6 right-6 w-[380px] h-[520px] max-h-[85vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden z-50 border border-gray-100 dark:border-slate-800 animate-in slide-in-from-bottom-5">
       {/* Header */}
       <div className="bg-linear-to-r from-indigo-600 to-blue-600 p-4 flex justify-between items-center text-white shrink-0">
         <div className="flex items-center gap-3">

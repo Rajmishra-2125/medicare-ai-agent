@@ -32,6 +32,8 @@ import { Star, CreditCard } from "lucide-react";
 import AppointmentDetailsModal from "./AppointmentDetailsModal";
 import { useDebounce } from "../../../../hooks/useDebounce";
 import { useSessionStorage } from "../../../../hooks/useSessionStorage";
+import AppointmentRowSkeleton from "../../../../components/skeletons/AppointmentRowSkeleton";
+import EmptyState from "../../../../components/ui/EmptyState";
 
 function MyAppointments({ appointments = [], loading = false, error = null, onRefresh }) {
   const [selectedFilter, setSelectedFilter] = useSessionStorage("my_appointments_filter", "all"); // all, upcoming, completed, cancelled
@@ -415,22 +417,27 @@ function MyAppointments({ appointments = [], loading = false, error = null, onRe
         {/* <!-- Appointments List --> */}
         <div className="grid gap-6">
           {currentLoading && currentAppointments.length === 0 ? (
-             <div className="flex flex-col justify-center items-center py-20">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-                <span className="text-gray-600 dark:text-gray-400 font-medium">Loading your appointments...</span>
-             </div>
+            <AppointmentRowSkeleton />
           ) : filteredAppointments.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                    <Calendar className="w-10 h-10 text-blue-500 dark:text-blue-400" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No appointments found</h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-                    {searchQuery || selectedFilter !== 'all' 
-                        ? "We couldn't find any appointments matching your filters." 
-                        : "You haven't booked any appointments yet. Book your first consultation today!"}
-                </p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No Appointments Found"
+              description={
+                searchQuery || selectedFilter !== "all"
+                  ? "We couldn't find any appointments matching your search query or status filters. Try adjusting your parameters!"
+                  : "You haven't scheduled any consultations yet. Find an expert doctor and book your appointment today!"
+              }
+              actionLabel={searchQuery || selectedFilter !== "all" ? "Clear Search Filters" : "Book Appointment"}
+              actionPath={searchQuery || selectedFilter !== "all" ? null : "/doctors"}
+              onActionClick={
+                searchQuery || selectedFilter !== "all"
+                  ? () => {
+                      setSearchQuery("");
+                      setSelectedFilter("all");
+                    }
+                  : null
+              }
+            />
           ) : (
             filteredAppointments.map((appointment) => (
               <div

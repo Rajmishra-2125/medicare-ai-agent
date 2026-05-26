@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import doctorService from "../../../../services/doctorService";
-import DashboardStatsSkeleton from "../../../../components/skeletons/DashboardStatsSkeleton";
+import DoctorCardSkeleton from "../../../../components/skeletons/DoctorCardSkeleton";
+import EmptyState from "../../../../components/ui/EmptyState";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -338,23 +339,15 @@ function Doctors() {
 
         {/* Doctors Grid/List */}
         {isLoading ? (
-           <DashboardStatsSkeleton />
+          <DoctorCardSkeleton />
         ) : filteredDoctors.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl transition-colors duration-200">
-            <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No doctors found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Try adjusting your search or filters
-            </p>
-            <button
-              onClick={clearFilters}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold"
-            >
-              Clear all filters
-            </button>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="No Doctors Found"
+            description="We couldn't find any medical specialists matching your search queries or filter choices. Try widening your filters or search terms!"
+            actionLabel="Clear All Search Filters"
+            onActionClick={clearFilters}
+          />
         ) : viewMode === "grid" ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredDoctors.map((doctor) => (

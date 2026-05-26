@@ -15,9 +15,24 @@ import { cacheMiddleware } from "../middlewares/cache.middleware.js";
 const router = Router();
 
 /**
- * =========================
- * Protected Routes
- * =========================
+ * @openapi
+ * /doctors/profiles:
+ *   get:
+ *     summary: Retrieve list of all registered doctors
+ *     tags: [Doctors]
+ *     responses:
+ *       200:
+ *         description: List of doctors returned successfully.
+ *
+ * /doctors/my-profile:
+ *   get:
+ *     summary: Retrieve logged-in doctor profile details
+ *     tags: [Doctors]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Doctor profile returned successfully.
  */
 
 // Get explicit current doctor profile

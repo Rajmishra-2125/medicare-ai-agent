@@ -13,6 +13,73 @@ import { verifyJWT } from "../middlewares/auth.middlewares.js";
 
 const router = Router();
 
+/**
+ * @openapi
+ * /appointments:
+ *   get:
+ *     summary: Retrieve patient's appointments list
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of appointments returned successfully.
+ *
+ * /appointments/checkslot:
+ *   post:
+ *     summary: Retrieve available slots for a doctor on a specific date
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - date
+ *             properties:
+ *               username:
+ *                 type: string
+ *               date:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: List of available slots.
+ *
+ * /appointments/bookslot:
+ *   post:
+ *     summary: Book an appointment slot
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - slotNumber
+ *               - date
+ *               - username
+ *               - reason
+ *             properties:
+ *               slotNumber:
+ *                 type: string
+ *               date:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Slot booked successfully.
+ */
+
 // Get my appointments
 router.route("/").get(verifyJWT, myAppointments);
 
