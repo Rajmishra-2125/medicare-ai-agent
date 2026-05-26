@@ -768,19 +768,18 @@ function Contact() {
 
       {/* Map Section */}
       <section className="py-0">
-        <div className="w-full h-96 bg-gray-200 relative overflow-hidden">
-          {/* Placeholder for Google Maps */}
-          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-blue-100 to-indigo-100">
-            <div className="text-center">
-              <MapPin className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-700 dark:text-gray-300 font-semibold">
-                Interactive Map
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Google Maps Integration
-              </p>
-            </div>
-          </div>
+        <div className="w-full h-[450px] bg-gray-200 relative overflow-hidden shadow-inner">
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.6175402450847!2d-73.98888748459388!3d40.74844047932822!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259a9b3117469%3A0xd134e199a405a163!2sEmpire%20State%20Building!5e0!3m2!1sen!2sus!4v1683100000000!5m2!1sen!2sus"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen=""
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Medicare Medical Office Map"
+            className="filter grayscale-30 dark:invert dark:hue-rotate-180 opacity-90 hover:opacity-100 transition-all duration-300"
+          ></iframe>
         </div>
       </section>
 
