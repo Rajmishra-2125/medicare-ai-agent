@@ -135,9 +135,11 @@ const appointmentSchema = new Schema(
     },
     cashfreeOrderId: {
       type: String,
+      index: true,
     },
     cashfreeSessionId: {
       type: String,
+      index: true,
     },
     paidAt: {
       type: Date,

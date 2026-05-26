@@ -7,6 +7,7 @@ import { Appointment } from "../models/appointment.models.js";
 import { Doctor } from "../models/doctor.models.js";
 import { User } from "../models/user.models.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { escapeHTML } from "../utils/sanitize.js";
 
 // Initialize Cashfree instance
 const getCashfreeInstance = () => {
@@ -114,8 +115,13 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Missing required payment breakdown details");
   }
 
-  const appointment =
-    await Appointment.findById(appointmentId).populate("doctorId");
+  const appointment = await Appointment.findById(appointmentId)
+    .populate({
+      path: "doctorId",
+      populate: { path: "doctorId" }
+    })
+    .populate("patientId");
+
   if (!appointment) {
     throw new ApiError(404, "Appointment not found");
   }
@@ -143,33 +149,36 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
     await appointment.save();
 
-    // Dispatch emails and stats
-    const doctor = await Doctor.findById(appointment.doctorId);
+    // Dispatch emails and stats using already populated objects (0 extra database hits!)
+    const doctor = appointment.doctorId;
     if (doctor) {
       doctor
         .updateDoctorStats()
         .catch((err) => console.error("Stats Update Error:", err));
 
       try {
-        const patientUser = await User.findById(appointment.patientId);
-        const doctorUser = await User.findById(doctor.doctorId);
+        const patientUser = appointment.patientId;
+        const doctorUser = doctor.doctorId; // deep populated User model
 
         // Dispatch Patient Email
         if (patientUser) {
+          const patientNameEscaped = escapeHTML(patientUser.fullname);
+          const doctorNameEscaped = escapeHTML(doctor.doctorDetails?.fullname || doctor.doctor);
+          
           await sendEmail({
             email: patientUser.email,
             subject: "Payment Received & Appointment Confirmed - MediCare",
             message: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
                           <h1 style="color: #2563eb; text-align: center;">Appointment Confirmed! 🎉</h1>
-                          <p style="font-size: 16px; color: #333;">Hi <strong>${patientUser.fullname}</strong>,</p>
+                          <p style="font-size: 16px; color: #333;">Hi <strong>${patientNameEscaped}</strong>,</p>
                           <p style="font-size: 16px; color: #333;">Your payment was successful and your appointment has been confirmed! Here are your official booking details:</p>
                           <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>Doctor:</strong> Dr. ${doctor.doctorDetails?.fullname || doctor.doctor}</p>
+                            <p style="margin: 5px 0;"><strong>Doctor:</strong> Dr. ${doctorNameEscaped}</p>
                             <p style="margin: 5px 0;"><strong>Date:</strong> ${appointment.date.toDateString()}</p>
                             <p style="margin: 5px 0;"><strong>Time:</strong> ${appointment.timeSlots}</p>
                             <p style="margin: 5px 0;"><strong>Consultation Fee:</strong> ₹${appointment.consultationFee} (PAID)</p>
-                            <p style="margin: 5px 0;"><strong>Order ID:</strong> ${order_id}</p>
+                            <p style="margin: 5px 0;"><strong>Order ID:</strong> ${escapeHTML(order_id)}</p>
                           </div>
                           <p style="font-size: 14px; color: #64748b; text-align: center;">Thank you for choosing MediCare!</p>
                         </div>`,
@@ -178,19 +187,23 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
         // Dispatch Doctor Email
         if (doctorUser) {
+          const doctorNameEscaped = escapeHTML(doctor.doctorDetails?.fullname || doctor.doctor);
+          const patientNameEscaped = escapeHTML(patientUser?.fullname || "Patient");
+          const reasonEscaped = escapeHTML(appointment.reason);
+
           await sendEmail({
             email: doctorUser.email,
             subject: "Action Required: New Paid Patient Booking - MediCare",
             message: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
                           <h1 style="color: #16a34a; text-align: center;">New Patient Scheduled! 🩺</h1>
-                          <p style="font-size: 16px; color: #333;">Dr. <strong>${doctor.doctorDetails?.fullname || doctor.doctor}</strong>,</p>
+                          <p style="font-size: 16px; color: #333;">Dr. <strong>${doctorNameEscaped}</strong>,</p>
                           <p style="font-size: 16px; color: #333;">Great news! A new patient has successfully booked and <b>PAID</b> for one of your available time slots.</p>
                           <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            <p style="margin: 5px 0; color: #166534;"><strong>Patient Name:</strong> ${patientUser?.fullname || "Patient"}</p>
+                            <p style="margin: 5px 0; color: #166534;"><strong>Patient Name:</strong> ${patientNameEscaped}</p>
                             <p style="margin: 5px 0; color: #166534;"><strong>Date:</strong> ${appointment.date.toDateString()}</p>
                             <p style="margin: 5px 0; color: #166534;"><strong>Time Slot:</strong> ${appointment.timeSlots}</p>
-                            <p style="margin: 5px 0; color: #166534;"><strong>Reason for Visit:</strong> ${appointment.reason}</p>
+                            <p style="margin: 5px 0; color: #166534;"><strong>Reason for Visit:</strong> ${reasonEscaped}</p>
                           </div>
                         </div>`,
           });
