@@ -3,30 +3,69 @@ import { User } from "../models/user.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-export const verifyJWT = asyncHandler(async (req, _, next) => {
-  const token =
+export const verifyJWT = asyncHandler(async (req, res, next) => {
+  let token =
     req.cookies.accessToken ||
     req.header("Authorization")?.replace(/^Bearer\s+/i, "");
 
-  if (!token) {
-    throw new ApiError(401, "Unauthorized");
-  }
+  if (token) {
+    try {
+      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-  try {
-    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const user = await User.findById(decodedToken?._id).select(
+        "-password -refreshToken"
+      );
 
-    const user = await User.findById(decodedToken?._id).select(
-      "-password -refreshToken"
-    );
-
-    if (!user) {
-      throw new ApiError(401, "Unauthorized");
+      if (user) {
+        req.user = user;
+        return next();
+      }
+    } catch (error) {
+      // Access token expired or invalid, proceed to try automatic refresh below
     }
-
-    req.user = user;
-
-    next();
-  } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid acess token");
   }
+
+  // Silent Auto-Refresh using HttpOnly secure refreshToken cookie
+  const incomingRefreshToken = req.cookies.refreshToken;
+  if (incomingRefreshToken) {
+    try {
+      const decodedToken = jwt.verify(
+        incomingRefreshToken,
+        process.env.REFRESH_TOKEN_SECRET
+      );
+
+      const user = await User.findById(decodedToken?._id);
+
+      if (user && incomingRefreshToken === user.refreshToken) {
+        // Generate fresh new tokens
+        const accessTokenObj = user.generateAccessToken();
+        const refreshTokenObj = user.generateRefreshToken();
+
+        // Save new refresh token to DB
+        user.refreshToken = refreshTokenObj;
+        await user.save({ validateBeforeSave: false });
+
+        // Set secure HttpOnly cookies
+        const options = {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        };
+
+        res.cookie("accessToken", accessTokenObj, options);
+        res.cookie("refreshToken", refreshTokenObj, options);
+
+        req.user = await User.findById(user._id).select(
+          "-password -refreshToken"
+        );
+        return next();
+      }
+    } catch (refreshError) {
+      // Refresh token expired or compromised
+    }
+  }
+
+  // If both access token and refresh token fail, the user is completely unauthorized
+  throw new ApiError(401, "Unauthorized");
 });
