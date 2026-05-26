@@ -238,7 +238,7 @@ const loginUser = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser },
+        { user: loggedInUser, accessToken, refreshToken },
         "User loggedIn successfully"
       )
     );
@@ -286,7 +286,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          {},
+          { accessToken, refreshToken },
           "access token is refreshed"
         )
       );
@@ -380,7 +380,7 @@ const googleAuthLogin = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { user: loggedInUser },
+          { user: loggedInUser, accessToken, refreshToken },
           "Google OAuth login successful"
         )
       );
@@ -503,7 +503,7 @@ const verifyEmailOTP = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser },
+        { user: loggedInUser, accessToken, refreshToken },
         "Email verified and login successful"
       )
     );

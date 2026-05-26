@@ -27,10 +27,16 @@ const processQueue = (error, token = null) => {
 // Keeps session clearing logic in one clean, exported module
 export const forceLogout = () => {
   // Return early if the user session is already cleared to avoid loops
-  if (!localStorage.getItem("user")) {
+  if (
+    !localStorage.getItem("user") &&
+    !localStorage.getItem("accessToken") &&
+    !localStorage.getItem("refreshToken")
+  ) {
     return;
   }
   localStorage.removeItem("user");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
   
   // Trigger cross-tab logout synchronization
   window.localStorage.setItem('logoutEvent', Date.now().toString());
@@ -126,6 +132,11 @@ api.interceptors.request.use(
       }, 3000);
     }
 
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {
@@ -179,7 +190,10 @@ api.interceptors.response.use(
         return new Promise(function(resolve, reject) {
           failedQueue.push({ resolve, reject });
         })
-        .then(() => {
+        .then((token) => {
+          if (token && typeof token === 'string') {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }
           return api(originalRequest);
         })
         .catch((err) => {
@@ -191,13 +205,27 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Refresh access token via HttpOnly cookies (automatically sent via withCredentials)
-        await api.post(`/auth/refresh-token`);
+        const refreshToken = localStorage.getItem("refreshToken");
+        // Refresh access token - pass refreshToken in body as fallback if cookies are blocked
+        const response = await api.post(`/auth/refresh-token`, { refreshToken });
+
+        const newAccessToken = response.data?.data?.accessToken;
+        const newRefreshToken = response.data?.data?.refreshToken;
+
+        if (newAccessToken) {
+          localStorage.setItem("accessToken", newAccessToken);
+        }
+        if (newRefreshToken) {
+          localStorage.setItem("refreshToken", newRefreshToken);
+        }
 
         isRefreshing = false;
-        processQueue(null, true);
+        processQueue(null, newAccessToken);
 
         // Replay the original request now that the token is refreshed
+        if (newAccessToken) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        }
         return api(originalRequest);
       } catch (err) {
         processQueue(err, null);
