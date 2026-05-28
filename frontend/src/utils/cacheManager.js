@@ -58,7 +58,7 @@ export const cacheManager = {
   invalidate: (key) => {
     try {
       localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-    } catch (error) {
+    } catch {
       // ignore
     }
   },
@@ -73,7 +73,7 @@ export const cacheManager = {
           localStorage.removeItem(key);
         }
       });
-    } catch (error) {
+    } catch {
       // ignore
     }
   }

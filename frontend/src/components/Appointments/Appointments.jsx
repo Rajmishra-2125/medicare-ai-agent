@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -37,10 +37,6 @@ function Appointments() {
   const location = useLocation();
   const selectedDoctor = location.state?.doctor;
   const { user } = useSelector((state) => state.auth);
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
 
   const [activeTab, setActiveTab] = useState("book"); // book, myAppointments
 
@@ -368,6 +364,10 @@ function Appointments() {
 
   // Get minimum date (today)
   const today = new Date().toISOString().split("T")[0];
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">

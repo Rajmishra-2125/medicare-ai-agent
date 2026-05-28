@@ -96,7 +96,7 @@ const FloatingAgent = () => {
                 } else if (parsed.error) {
                   dispatch(updateLastAssistantMessage(`⚠️ System Error: ${parsed.error}`));
                 }
-              } catch (err) {
+              } catch {
                 // Ignore chunk parsing anomalies
               }
             }

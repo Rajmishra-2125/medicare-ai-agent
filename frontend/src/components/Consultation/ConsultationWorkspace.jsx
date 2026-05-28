@@ -59,6 +59,54 @@ const ConsultationWorkspace = () => {
     return `${h}:${m}:${s}`;
   };
 
+  // Create Peer Connection
+  function createPeerConnection() {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+    }
+
+    const pc = new RTCPeerConnection(iceServers);
+    peerConnectionRef.current = pc;
+
+    // Send local candidate to peers
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socket) {
+        socket.emit("webrtc:ice-candidate", { roomId, candidate: event.candidate });
+      }
+    };
+
+    // Connection state diagnostics
+    pc.onconnectionstatechange = () => {
+      console.log("🕸️ PeerConnection state change:", pc.connectionState);
+      if (pc.connectionState === "connected") {
+        setConnectionStatus("Consultation Active");
+      } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        setConnectionStatus("Reconnecting...");
+      }
+    };
+
+    // Render remote stream when tracks arrive
+    pc.ontrack = (event) => {
+      console.log("🎯 Received remote media tracks.");
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+  }
+
+  // Terminate Call & Navigate Home
+  function hangUpCall() {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  }
+
   useEffect(() => {
     if (!socket) {
       toast.error("Socket signaling connection not active. Reconnecting...");
@@ -180,40 +228,7 @@ const ConsultationWorkspace = () => {
     };
   }, [roomId, socket]);
 
-  // Create Peer Connection
-  const createPeerConnection = () => {
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-    }
 
-    const pc = new RTCPeerConnection(iceServers);
-    peerConnectionRef.current = pc;
-
-    // Send local candidate to peers
-    pc.onicecandidate = (event) => {
-      if (event.candidate && socket) {
-        socket.emit("webrtc:ice-candidate", { roomId, candidate: event.candidate });
-      }
-    };
-
-    // Connection state diagnostics
-    pc.onconnectionstatechange = () => {
-      console.log("🕸️ PeerConnection state change:", pc.connectionState);
-      if (pc.connectionState === "connected") {
-        setConnectionStatus("Consultation Active");
-      } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        setConnectionStatus("Reconnecting...");
-      }
-    };
-
-    // Render remote stream when tracks arrive
-    pc.ontrack = (event) => {
-      console.log("🎯 Received remote media tracks.");
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-  };
 
   // Toggle Mute Audio
   const toggleAudio = () => {
@@ -279,18 +294,7 @@ const ConsultationWorkspace = () => {
     }
   };
 
-  // Terminate Call & Navigate Home
-  const hangUpCall = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-  };
+
 
   const handleEndCall = () => {
     hangUpCall();

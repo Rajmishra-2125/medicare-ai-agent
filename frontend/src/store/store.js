@@ -21,7 +21,7 @@ store.subscribe(() => {
   try {
     const serializedState = JSON.stringify(store.getState().notifications);
     localStorage.setItem("notificationsState", serializedState);
-  } catch (err) {
+  } catch {
     // Ignore write errors
   }
 });
