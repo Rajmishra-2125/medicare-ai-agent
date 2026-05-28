@@ -54,7 +54,7 @@ function LabTests() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
       {/* Hero Header */}
-      <section className="relative bg-gradient-to-br from-emerald-500 to-teal-650 dark:from-emerald-600 dark:to-teal-700 text-white py-16 transition-all duration-300">
+      <section className="relative bg-linear-to-br from-emerald-500 to-teal-650 dark:from-emerald-600 dark:to-teal-700 text-white py-16 transition-all duration-300">
         <div className="absolute inset-0 bg-black opacity-10"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_40%)]"></div>
         
@@ -156,7 +156,7 @@ function LabTests() {
             <div className="flex gap-4">
               <Link
                 to="/appointments"
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg py-4 px-8 rounded-2xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-linear-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg py-4 px-8 rounded-2xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 <Calendar className="w-5 h-5" />
                 Book Scheduled Service
@@ -174,7 +174,7 @@ function LabTests() {
           <div className="lg:col-span-5">
             <div className="sticky top-6 bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-emerald-500/10 transition-colors duration-200">
               
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-650 p-6 text-white flex items-center justify-between">
+              <div className="bg-linear-to-r from-emerald-500 to-teal-650 p-6 text-white flex items-center justify-between">
                 <div>
                   <h3 className="font-extrabold text-xl tracking-tight">Interactive Service Portal</h3>
                   <p className="text-white/80 text-xs mt-0.5">Live validation & scheduling simulator</p>
