@@ -576,7 +576,7 @@ function Contact() {
                 </h3>
                 <div className="space-y-3">
                   <Link
-                    to="/doctors/appointments"
+                    to="/appointments"
                     className="flex items-center gap-3 p-4 bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 rounded-lg transition-colors group"
                   >
                     <Calendar className="w-6 h-6 text-blue-600" />

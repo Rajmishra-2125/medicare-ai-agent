@@ -558,7 +558,7 @@ function Services() {
                   {/* CTA Buttons */}
                   <div className="flex gap-3">
                     <Link
-                      to="/doctors/appointments"
+                      to="/appointments"
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold text-center transition-colors shadow-lg hover:shadow-blue-500/30"
                     >
                       Book Now
@@ -715,7 +715,7 @@ function Services() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              to="/doctors/appointments"
+              to="/appointments"
               className="inline-flex items-center justify-center gap-2 bg-white text-blue-600 dark:text-blue-800 px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg hover:shadow-xl hover:scale-105"
             >
               <Calendar className="w-5 h-5" />

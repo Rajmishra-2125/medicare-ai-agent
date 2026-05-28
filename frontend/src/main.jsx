@@ -24,6 +24,7 @@ const About = lazy(() => import("./components/About/About.jsx"));
 const Contact = lazy(() => import("./components/Contacts/Contact.jsx"));
 const Doctors = lazy(() => import("./components/Doctors/Doctors.jsx"));
 const Services = lazy(() => import("./components/Services/Services.jsx"));
+const ServiceDetail = lazy(() => import("./components/Services/ServiceDetail.jsx"));
 const Appointments = lazy(
   () => import("./components/Appointments/Appointments.jsx"),
 );
@@ -54,6 +55,7 @@ const router = createBrowserRouter(
       <Route path="about" element={<About />} />
       <Route path="contact" element={<Contact />} />
       <Route path="services" element={<Services />} />
+      <Route path="services/:serviceType" element={<ServiceDetail />} />
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
       <Route path="verify-email" element={<EmailVerification />} />

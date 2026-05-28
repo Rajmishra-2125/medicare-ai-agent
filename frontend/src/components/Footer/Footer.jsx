@@ -112,7 +112,7 @@ const Footer = () => {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  to="/services"
+                  to="/services/online-consultation"
                   className="hover:text-orange-500 transition-colors"
                 >
                   Online Consultation
@@ -120,7 +120,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/services"
+                  to="/services/lab-tests"
                   className="hover:text-orange-500 transition-colors"
                 >
                   Lab Tests
@@ -128,7 +128,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/services"
+                  to="/services/prescription-refills"
                   className="hover:text-orange-500 transition-colors"
                 >
                   Prescription Refills
@@ -136,7 +136,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/services"
+                  to="/services/health-records"
                   className="hover:text-orange-500 transition-colors"
                 >
                   Health Records
@@ -144,7 +144,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/services"
+                  to="/services/emergency-care"
                   className="hover:text-orange-500 transition-colors"
                 >
                   Emergency Care

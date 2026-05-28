@@ -482,7 +482,7 @@ function Home() {
                         <span>{doctor.patients}+ patients</span>
                       </div>
                       <Link
-                        to="/doctors/appointments"
+                        to="/appointments"
                         className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
                       >
                         Book Appointment
