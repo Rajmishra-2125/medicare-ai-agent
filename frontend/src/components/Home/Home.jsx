@@ -173,6 +173,9 @@ function Home() {
       patients: doc.totalAppointments || doc.reviewCount || 100,
       image:
         doc.doctorDetails?.profileImage ||
+        doc.profileImage ||
+        doc.image ||
+        doc.doctorId?.profileImage ||
         `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor || "Doctor"}&background=random`,
     }));
   }, [doctors]);

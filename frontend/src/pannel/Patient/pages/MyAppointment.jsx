@@ -318,6 +318,8 @@ function MyAppointments({
                       <div className="relative">
                         <img
                           src={
+                            appointment.doctorId?.doctorId?.profileImage ||
+                            appointment.doctorId?.profileImage ||
                             appointment.doctorId?.image ||
                             appointment.image ||
                             `https://ui-avatars.com/api/?name=${appointment.doctorId?.username || appointment.doctorName || "Doctor"}&background=random`

@@ -68,7 +68,10 @@ function About() {
           patients: doc.totalAppointments || doc.reviewCount || 100,
           image:
             doc.doctorDetails?.profileImage ||
-            `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor}&background=random`,
+            doc.profileImage ||
+            doc.image ||
+            doc.doctorId?.profileImage ||
+            `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor || "Doctor"}&background=random`,
         }))
       : [];
 

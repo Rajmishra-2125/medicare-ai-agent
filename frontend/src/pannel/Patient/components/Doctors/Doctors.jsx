@@ -92,7 +92,7 @@ function Doctors() {
       availability: doc.availableDays?.join(", ") || "Mon-Fri",
       nextAvailable: "Today", // continuous availability assumed for now
       consultationFee: doc.consultationFee || 0,
-      image: doc.doctorDetails?.profileImage || `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor}&background=random`,
+      image: doc.doctorDetails?.profileImage || doc.profileImage || doc.image || doc.doctorId?.profileImage || `https://ui-avatars.com/api/?name=${doc.doctorDetails?.fullname || doc.doctor || doc.name || "Doctor"}&background=random`,
       about: doc.bio || `Experienced ${doc.specialization} specialist.`,
       achievements: [], // Backend doesn't have achievements field yet
       videoConsult: true, // Defaulting to true
