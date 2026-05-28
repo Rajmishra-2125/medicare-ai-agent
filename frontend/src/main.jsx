@@ -24,7 +24,11 @@ const About = lazy(() => import("./components/About/About.jsx"));
 const Contact = lazy(() => import("./components/Contacts/Contact.jsx"));
 const Doctors = lazy(() => import("./components/Doctors/Doctors.jsx"));
 const Services = lazy(() => import("./components/Services/Services.jsx"));
-const ServiceDetail = lazy(() => import("./components/Services/ServiceDetail.jsx"));
+const OnlineConsultation = lazy(() => import("./components/Services/OnlineConsultation.jsx"));
+const LabTests = lazy(() => import("./components/Services/LabTests.jsx"));
+const PrescriptionRefills = lazy(() => import("./components/Services/PrescriptionRefills.jsx"));
+const HealthRecords = lazy(() => import("./components/Services/HealthRecords.jsx"));
+const EmergencyCare = lazy(() => import("./components/Services/EmergencyCare.jsx"));
 const Appointments = lazy(
   () => import("./components/Appointments/Appointments.jsx"),
 );
@@ -55,7 +59,11 @@ const router = createBrowserRouter(
       <Route path="about" element={<About />} />
       <Route path="contact" element={<Contact />} />
       <Route path="services" element={<Services />} />
-      <Route path="services/:serviceType" element={<ServiceDetail />} />
+      <Route path="services/online-consultation" element={<OnlineConsultation />} />
+      <Route path="services/lab-tests" element={<LabTests />} />
+      <Route path="services/prescription-refills" element={<PrescriptionRefills />} />
+      <Route path="services/health-records" element={<HealthRecords />} />
+      <Route path="services/emergency-care" element={<EmergencyCare />} />
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
       <Route path="verify-email" element={<EmailVerification />} />
